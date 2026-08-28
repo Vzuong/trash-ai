@@ -1,0 +1,33 @@
+# ==============================================================================
+# Requirements for Trash Recognition using YOLOv11 & PyTorch
+# ==============================================================================
+
+# --- PyTorch (GPU Version for CUDA 11.8 - Compatible with NVIDIA Driver 11.x) ---
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# ------------------------------------------------------------------------------
+# --- PyTorch (GPU Version for CUDA 12.1 - For Updated Drivers) ---
+# --extra-index-url https://download.pytorch.org/whl/cu121
+# torch>=2.0.0
+# torchvision>=0.15.0
+# torchaudio>=2.0.0
+
+# --- PyTorch (CPU-Only Version) ---
+# --extra-index-url https://download.pytorch.org/whl/cpu
+# torch>=2.0.0
+# torchvision>=0.15.0
+# torchaudio>=2.0.0
+# ------------------------------------------------------------------------------
+
+# --- Ultralytics YOLOv11 & Computer Vision Core ---
+ultralytics>=8.3.0
+opencv-python>=4.8.0
+pillow>=9.5.0
+pyyaml>=6.0
+matplotlib>=3.7.0
+tqdm>=4.65.0
+pandas>=2.0.0
+seaborn>=0.12.0

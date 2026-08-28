@@ -1,0 +1,30 @@
+# Datasets and heavy archive files
+Trash_dataset/
+Trash_dataset_balanced/
+*.zip
+*.tar.gz
+*.rar
+
+# Training runs and cache
+runs/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Git and IDE
+.git/
+.gitignore
+.gemini/
+.agents/
+.vscode/
+.idea/
+
+# Local Node modules & temporary files
+client/node_modules/
+server/node_modules/
+client/dist/
+.DS_Store
+Thumbs.db
+*.log

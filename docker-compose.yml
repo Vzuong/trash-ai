@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  trash-ai-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: trash-ai-system:v2.0
+    container_name: trash_ai_container
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    environment:
+      - NODE_ENV=production
+      - PORT=7860
+      - YOLO_SERVICE_URL=http://127.0.0.1:5001
+    volumes:
+      - ./server/data:/app/server/data
+      - ./server/uploads:/app/server/uploads

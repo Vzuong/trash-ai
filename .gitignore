@@ -1,0 +1,30 @@
+# Datasets & Training outputs
+Trash_dataset/
+Trash_dataset_balanced/
+runs/
+weights/
+yolo11s.pt
+*.zip
+*.tar.gz
+*.csv
+*.png
+
+# Python virtualenv & cache
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node dependencies & dist
+node_modules/
+client/node_modules/
+server/node_modules/
+client/dist/
+
+# System & IDE
+.ds_store
+Thumbs.db
+.vscode/
+.idea/
+.gemini/
+.agents/

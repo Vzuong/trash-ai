@@ -1,17 +1,5 @@
 # ========================================================
-# STAGE 1: Build Vue 3 Frontend Single Page Application
-# ========================================================
-FROM node:20-slim AS frontend-builder
-WORKDIR /app/client
-
-COPY client/package*.json ./
-RUN npm install --include=dev
-
-COPY client/ ./
-RUN npm run build
-
-# ========================================================
-# STAGE 2: Python 3.11 + Node.js 20 Universal Runtime
+# Python 3.11 + Node.js 20 Universal Runtime for Trash AI
 # ========================================================
 FROM python:3.11-slim
 
@@ -49,11 +37,11 @@ WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm install --production
 
-# Copy Application Source Code
+# Copy Application Source Code & Prebuilt Vue Frontend
 WORKDIR /app
 COPY best.pt /app/best.pt
 COPY server /app/server
-COPY --from=frontend-builder /app/client/dist /app/client/dist
+COPY client/dist /app/client/dist
 COPY start.sh /app/start.sh
 
 # Fix permissions
@@ -64,7 +52,7 @@ ENV NODE_ENV=production
 ENV PORT=7860
 ENV YOLO_SERVICE_URL=http://127.0.0.1:5001
 
-# Expose default port (Hugging Face Spaces: 7860, Render: $PORT)
+# Expose default port (Render: $PORT)
 EXPOSE 7860
 
 # Startup command

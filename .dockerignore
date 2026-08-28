@@ -24,7 +24,6 @@ __pycache__/
 # Local Node modules & temporary files
 client/node_modules/
 server/node_modules/
-client/dist/
 .DS_Store
 Thumbs.db
 *.log

@@ -15,11 +15,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Node dependencies & dist
+# Node dependencies
 node_modules/
 client/node_modules/
 server/node_modules/
-client/dist/
 
 # System & IDE
 .ds_store

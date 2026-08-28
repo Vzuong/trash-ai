@@ -1,11 +1,11 @@
 # ========================================================
 # STAGE 1: Build Vue 3 Frontend Single Page Application
 # ========================================================
-FROM node:20-alpine AS frontend-builder
+FROM node:20-slim AS frontend-builder
 WORKDIR /app/client
 
 COPY client/package*.json ./
-RUN npm install
+RUN npm install --include=dev
 
 COPY client/ ./
 RUN npm run build

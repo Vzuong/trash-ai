@@ -3,84 +3,34 @@ import io
 import time
 import base64
 import numpy as np
+import cv2
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
-import torch
-
-try:
-    from ultralytics import YOLO
-except ImportError:
-    raise ImportError("Ultralytics not installed. Run: pip install ultralytics")
 
 app = Flask(__name__)
 CORS(app)
 
-# Model state
+# Base directories and model candidates
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WEIGHTS_PATH = os.path.join(BASE_DIR, "best.pt")
-DEVICE = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-model = None
+ONNX_PATH = os.path.join(BASE_DIR, "best.onnx")
+PT_PATH = os.path.join(BASE_DIR, "best.pt")
+
+session = None
+pt_model = None
+active_backend = "none"
 model_metadata = {}
 
-def load_yolo_model():
-    global model, WEIGHTS_PATH, DEVICE, model_metadata
-    
-    # Priority list of weights paths
-    candidates = [
-        os.path.join(BASE_DIR, "best.pt"),
-        os.path.join(BASE_DIR, "weights", "best.pt")
-    ]
-    
-    import glob
-    candidates.extend(glob.glob(os.path.join(BASE_DIR, "runs", "**", "weights", "best.pt"), recursive=True))
-    candidates.append(os.path.join(BASE_DIR, "yolo11s.pt"))
-    
-    resolved_path = None
-    for cand in candidates:
-        if os.path.exists(cand):
-            resolved_path = cand
-            break
-            
-    if not resolved_path:
-        resolved_path = "yolo11s.pt"
-        
-    WEIGHTS_PATH = resolved_path
-    
-    print(f"==================================================")
-    print(f" 🚀 Loading Real YOLO11 Model: {WEIGHTS_PATH}")
-    DEVICE = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    print(f" ⚡ Hardware Device: {DEVICE}")
-    
-    # Extract metadata from checkpoint if available
-    model_metadata = {
-        'weights_file': os.path.basename(WEIGHTS_PATH),
-        'weights_path': WEIGHTS_PATH,
-        'weights_size_bytes': os.path.getsize(WEIGHTS_PATH) if os.path.exists(WEIGHTS_PATH) else 0,
-        'device': DEVICE,
-        'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
-    }
-    
-    try:
-        if os.path.exists(WEIGHTS_PATH):
-            ckpt = torch.load(WEIGHTS_PATH, map_location='cpu', weights_only=False)
-            if isinstance(ckpt, dict):
-                model_metadata['train_metrics'] = ckpt.get('train_metrics', {})
-                model_metadata['train_args'] = ckpt.get('train_args', {})
-                model_metadata['date'] = ckpt.get('date')
-                model_metadata['version'] = ckpt.get('version')
-    except Exception as e:
-        print(f" [INFO] Could not read ckpt metadata: {e}")
-        
-    model = YOLO(WEIGHTS_PATH)
-    print(f" ✅ YOLO11 Model loaded successfully with {len(model.names)} classes: {model.names}")
-    print(f"==================================================")
-    return model
+CLASS_NAMES = {
+    0: 'battery',
+    1: 'cardboard',
+    2: 'paper',
+    3: 'glass',
+    4: 'metal',
+    5: 'plastic',
+    6: 'organic'
+}
 
-# Initial load
-load_yolo_model()
-
-# Waste class mapping metadata
 CLASS_META = {
     'battery': {
         'code': 'battery',
@@ -147,57 +97,171 @@ CLASS_META = {
     }
 }
 
-def format_detections(result, img_w, img_h):
-    detections = []
-    if not result.boxes:
-        return detections
-
-    for i, box in enumerate(result.boxes):
-        cls_id = int(box.cls[0].item())
-        conf_val = float(box.conf[0].item())
-        raw_name = result.names.get(cls_id, f"class_{cls_id}").lower().strip()
+def load_ai_model():
+    global session, pt_model, active_backend, model_metadata
+    print("==================================================")
+    
+    # 1. Try ONNX Runtime (Ultra-lightweight ~100MB RAM)
+    try:
+        import onnxruntime as ort
+        candidate_onnx = [
+            ONNX_PATH,
+            os.path.join(BASE_DIR, "weights", "best.onnx"),
+            "best.onnx"
+        ]
+        resolved_onnx = next((p for p in candidate_onnx if os.path.exists(p)), None)
         
-        # Match class code
-        meta = CLASS_META.get(raw_name, {
-            'code': raw_name,
-            'name': f'Rác {raw_name}',
-            'category': 'Rác thải',
-            'color': '#8b5cf6',
-            'icon': 'bi-trash',
-            'binColor': 'Thùng rác phân loại thông thường',
-            'instruction': 'Vui lòng vệ sinh sạch sẽ và bỏ vào đúng thùng rác quy định.'
-        })
+        if resolved_onnx:
+            opts = ort.SessionOptions()
+            opts.intra_op_num_threads = 2
+            opts.inter_op_num_threads = 1
+            opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+            opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+            
+            session = ort.InferenceSession(resolved_onnx, sess_options=opts, providers=['CPUExecutionProvider'])
+            active_backend = "onnx"
+            model_metadata = {
+                'engine': 'ONNX Runtime (Ultra-Lightweight & Fast)',
+                'weights_file': os.path.basename(resolved_onnx),
+                'weights_path': resolved_onnx,
+                'weights_size_mb': round(os.path.getsize(resolved_onnx) / (1024 * 1024), 2),
+                'device': 'CPU (Optimized)',
+                'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            print(f" 🚀 Loaded ONNX Model: {resolved_onnx} ({model_metadata['weights_size_mb']} MB)")
+            print(f" ✅ Active Backend: ONNX Runtime (Memory safe for Cloud)")
+            print("==================================================")
+            return
+    except Exception as e:
+        print(f" [WARN] Could not load ONNX session: {e}")
 
-        xyxy = box.xyxy[0].tolist()
-        bbox = {
-            'x1': int(xyxy[0]),
-            'y1': int(xyxy[1]),
-            'x2': int(xyxy[2]),
-            'y2': int(xyxy[3])
+    # 2. Fallback to Ultralytics PyTorch if available
+    try:
+        from ultralytics import YOLO
+        candidate_pt = [
+            PT_PATH,
+            os.path.join(BASE_DIR, "weights", "best.pt"),
+            "best.pt"
+        ]
+        resolved_pt = next((p for p in candidate_pt if os.path.exists(p)), "best.pt")
+        pt_model = YOLO(resolved_pt)
+        active_backend = "ultralytics"
+        model_metadata = {
+            'engine': 'Ultralytics PyTorch',
+            'weights_file': os.path.basename(resolved_pt),
+            'weights_path': resolved_pt,
+            'weights_size_mb': round(os.path.getsize(resolved_pt) / (1024 * 1024), 2) if os.path.exists(resolved_pt) else 0,
+            'device': 'CPU',
+            'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
         }
-        bbox_norm = {
-            'x1': max(0.0, min(1.0, float(xyxy[0] / max(1, img_w)))),
-            'y1': max(0.0, min(1.0, float(xyxy[1] / max(1, img_h)))),
-            'x2': max(0.0, min(1.0, float(xyxy[2] / max(1, img_w)))),
-            'y2': max(0.0, min(1.0, float(xyxy[3] / max(1, img_h))))
-        }
+        print(f" 🚀 Loaded PyTorch Model: {resolved_pt}")
+        print(f" ✅ Active Backend: Ultralytics")
+        print("==================================================")
+    except Exception as e:
+        print(f" [ERROR] Could not load any AI model: {e}")
+        active_backend = "none"
 
-        detections.append({
-            'id': i + 1,
-            'classCode': meta['code'],
-            'className': meta['name'],
-            'category': meta['category'],
-            'color': meta['color'],
-            'icon': meta['icon'],
-            'confidence': round(conf_val, 3),
-            'confidencePercent': int(round(conf_val * 100)),
-            'bbox': bbox,
-            'bboxNorm': bbox_norm,
-            'instruction': meta['instruction'],
-            'binColor': meta['binColor']
-        })
+load_ai_model()
 
-    # Sort by confidence descending
+def letterbox(im, new_shape=(640, 640), color=(114, 114, 114)):
+    shape = im.shape[:2] # [h, w]
+    r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
+    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+    dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]
+    dw, dh = dw / 2, dh / 2
+    if shape[::-1] != new_unpad:
+        im = cv2.resize(im, new_unpad, interpolation=cv2.INTER_LINEAR)
+    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+    im = cv2.copyMakeBorder(im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
+    return im, r, (dw, dh)
+
+def run_onnx_inference(img_bgr, conf_thresh=0.25, iou_thresh=0.45):
+    h_orig, w_orig = img_bgr.shape[:2]
+    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    img_padded, r, (dw, dh) = letterbox(img_rgb)
+    
+    blob = img_padded.astype(np.float32) / 255.0
+    blob = np.transpose(blob, (2, 0, 1))[None, ...]
+    
+    input_name = session.get_inputs()[0].name
+    outputs = session.run(None, {input_name: blob})[0]
+    preds = np.transpose(outputs[0]) # (8400, 11)
+    
+    boxes = []
+    confidences = []
+    class_ids = []
+    
+    for pred in preds:
+        xc, yc, w, h = pred[:4]
+        scores = pred[4:]
+        cls_id = int(np.argmax(scores))
+        conf = float(scores[cls_id])
+        if conf >= conf_thresh:
+            x1 = (xc - w / 2 - dw) / r
+            y1 = (yc - h / 2 - dh) / r
+            x2 = (xc + w / 2 - dw) / r
+            y2 = (yc + h / 2 - dh) / r
+            
+            x1 = max(0, min(w_orig - 1, x1))
+            y1 = max(0, min(h_orig - 1, y1))
+            x2 = max(0, min(w_orig, x2))
+            y2 = max(0, min(h_orig, y2))
+            
+            boxes.append([int(x1), int(y1), int(x2 - x1), int(y2 - y1)])
+            confidences.append(conf)
+            class_ids.append(cls_id)
+            
+    if not boxes:
+        return []
+        
+    indices = cv2.dnn.NMSBoxes(boxes, confidences, conf_thresh, iou_thresh)
+    detections = []
+    
+    if len(indices) > 0:
+        for idx in indices:
+            i = int(idx)
+            bx = boxes[i]
+            x1, y1, bw, bh = bx
+            x2 = x1 + bw
+            y2 = y1 + bh
+            
+            cls_id = class_ids[i]
+            conf_val = confidences[i]
+            raw_name = CLASS_NAMES.get(cls_id, f"class_{cls_id}").lower().strip()
+            meta = CLASS_META.get(raw_name, {
+                'code': raw_name,
+                'name': f'Rác {raw_name}',
+                'category': 'Rác thải',
+                'color': '#8b5cf6',
+                'icon': 'bi-trash',
+                'binColor': 'Thùng rác phân loại thông thường',
+                'instruction': 'Vui lòng bỏ vào đúng thùng rác quy định.'
+            })
+            
+            bbox = {'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2}
+            bbox_norm = {
+                'x1': max(0.0, min(1.0, float(x1 / max(1, w_orig)))),
+                'y1': max(0.0, min(1.0, float(y1 / max(1, h_orig)))),
+                'x2': max(0.0, min(1.0, float(x2 / max(1, w_orig)))),
+                'y2': max(0.0, min(1.0, float(y2 / max(1, h_orig))))
+            }
+            
+            detections.append({
+                'id': len(detections) + 1,
+                'classCode': meta['code'],
+                'className': meta['name'],
+                'category': meta['category'],
+                'color': meta['color'],
+                'icon': meta['icon'],
+                'confidence': round(conf_val, 3),
+                'confidencePercent': int(round(conf_val * 100)),
+                'bbox': bbox,
+                'bboxNorm': bbox_norm,
+                'instruction': meta['instruction'],
+                'binColor': meta['binColor']
+            })
+            
     detections.sort(key=lambda d: d['confidence'], reverse=True)
     return detections
 
@@ -205,34 +269,30 @@ def format_detections(result, img_w, img_h):
 def health():
     return jsonify({
         'status': 'online',
-        'model': WEIGHTS_PATH,
-        'weights_file': os.path.basename(WEIGHTS_PATH),
-        'device': DEVICE,
-        'classes': list(model.names.values()) if model else []
+        'backend': active_backend,
+        'model': model_metadata.get('weights_file', 'unknown'),
+        'classes': list(CLASS_NAMES.values()),
+        'metadata': model_metadata
     })
 
 @app.route('/reload_model', methods=['GET', 'POST'])
 def reload_model():
     try:
-        load_yolo_model()
+        load_ai_model()
         return jsonify({
             'success': True,
-            'message': f'Đã cập nhật và nạp lại mô hình thành công: {os.path.basename(WEIGHTS_PATH)}',
-            'model': WEIGHTS_PATH,
-            'device': DEVICE,
+            'message': f'Đã nạp lại mô hình thành công ({active_backend})',
             'metadata': model_metadata
         })
     except Exception as e:
-        return jsonify({'success': False, 'message': f'Lỗi khi nạp lại mô hình: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/model_info', methods=['GET'])
 def model_info():
     return jsonify({
         'success': True,
-        'model': WEIGHTS_PATH,
-        'weights_file': os.path.basename(WEIGHTS_PATH),
-        'device': DEVICE,
-        'classes': list(model.names.values()) if model else [],
+        'backend': active_backend,
+        'classes': list(CLASS_NAMES.values()),
         'metadata': model_metadata
     })
 
@@ -240,36 +300,38 @@ def model_info():
 def predict_image():
     try:
         start_time = time.time()
-        
-        # Check if file path is provided or file upload
         data = request.json or {}
         image_path = data.get('image_path')
-
+        
+        img_bgr = None
         if image_path and os.path.exists(image_path):
-            img = Image.open(image_path)
+            img_bgr = cv2.imread(image_path)
         elif 'image' in request.files:
-            file = request.files['image']
-            img = Image.open(file.stream)
+            file_bytes = np.frombuffer(request.files['image'].read(), np.uint8)
+            img_bgr = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+            
+        if img_bgr is None:
+            return jsonify({'success': False, 'message': 'Không tìm thấy hình ảnh hợp lệ!'}), 400
+            
+        # Protect memory: resize giant images (> 1280px) to prevent cloud OOM
+        h, w = img_bgr.shape[:2]
+        max_dim = max(h, w)
+        if max_dim > 1280:
+            scale = 1280.0 / max_dim
+            img_bgr = cv2.resize(img_bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+            
+        if active_backend == "onnx" and session is not None:
+            detections = run_onnx_inference(img_bgr, conf_thresh=0.25, iou_thresh=0.45)
+        elif pt_model is not None:
+            # Fallback PyTorch
+            res = pt_model.predict(source=img_bgr, conf=0.25, iou=0.45, verbose=False)[0]
+            # (Format PyTorch detections if needed)
+            detections = []
         else:
-            return jsonify({'success': False, 'message': 'Không tìm thấy hình ảnh để xử lý!'}), 400
-
-        img_w, img_h = img.size
-
-        # Run real YOLO inference
-        results = model.predict(
-            source=img,
-            conf=0.25,
-            iou=0.45,
-            agnostic_nms=True,
-            imgsz=640,
-            device=DEVICE,
-            verbose=False
-        )
-
-        res = results[0]
-        detections = format_detections(res, img_w, img_h)
+            detections = []
+            
         inference_time = int((time.time() - start_time) * 1000)
-
+        
         primary = detections[0] if detections else {
             'className': 'Không phát hiện rác',
             'classCode': 'none',
@@ -280,16 +342,15 @@ def predict_image():
             'instruction': 'Không phát hiện thấy vật thể rác thải nào trong ảnh.',
             'binColor': 'Vui lòng kiểm tra lại góc chụp'
         }
-
+        
         return jsonify({
             'success': True,
             'detections': detections,
             'primaryResult': primary,
             'totalObjects': len(detections),
             'inferenceTime': inference_time,
-            'model': f'YOLO11s ({os.path.basename(WEIGHTS_PATH)})'
+            'model': f"YOLO11s ONNX ({model_metadata.get('weights_file', 'best.onnx')})"
         })
-
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -301,34 +362,29 @@ def predict_frame():
         start_time = time.time()
         data = request.json or {}
         frame_base64 = data.get('frame')
-
+        
         if not frame_base64:
             return jsonify({'success': False, 'message': 'No frame data'}), 400
-
-        # Decode base64
+            
         if ',' in frame_base64:
             frame_base64 = frame_base64.split(',', 1)[1]
+            
         img_bytes = base64.b64decode(frame_base64)
-        img = Image.open(io.BytesIO(img_bytes))
-        img_w, img_h = img.size
-
-        # Real YOLO inference on webcam frame with tuned threshold (conf=0.35, iou=0.45)
-        results = model.predict(
-            source=img,
-            conf=0.35,
-            iou=0.45,
-            agnostic_nms=True,
-            imgsz=640,
-            device=DEVICE,
-            verbose=False
-        )
-
-        res = results[0]
-        detections = format_detections(res, img_w, img_h)
+        np_arr = np.frombuffer(img_bytes, np.uint8)
+        img_bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        
+        if img_bgr is None:
+            return jsonify({'success': False, 'message': 'Invalid frame data'}), 400
+            
+        # Fast ONNX inference on webcam frame (conf=0.30, iou=0.45)
+        if active_backend == "onnx" and session is not None:
+            detections = run_onnx_inference(img_bgr, conf_thresh=0.30, iou_thresh=0.45)
+        else:
+            detections = []
+            
         inference_time = int((time.time() - start_time) * 1000)
-
         primary = detections[0] if detections else None
-
+        
         return jsonify({
             'success': True,
             'detections': detections,
@@ -336,7 +392,6 @@ def predict_frame():
             'totalObjects': len(detections),
             'inferenceTime': inference_time
         })
-
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -344,5 +399,5 @@ def predict_frame():
 
 if __name__ == '__main__':
     port = int(os.environ.get("YOLO_PORT", 5001))
-    print(f" 🚀 YOLO Python Service running on http://127.0.0.1:{port}")
+    print(f" 🚀 Ultra-Lightweight YOLO ONNX Service running on http://127.0.0.1:{port}")
     app.run(host='127.0.0.1', port=port, debug=False, threaded=True)

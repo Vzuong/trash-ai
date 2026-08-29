@@ -4,6 +4,9 @@ Trash_dataset_balanced/
 runs/
 weights/
 yolo11s.pt
+cloudflared.exe
+current_tunnel_url.txt
+ngrok.yml
 *.zip
 *.tar.gz
 *.csv

@@ -101,7 +101,42 @@ def load_ai_model():
     global session, pt_model, active_backend, model_metadata
     print("==================================================")
     
-    # 1. Try ONNX Runtime (Ultra-lightweight ~100MB RAM)
+    # 1. Check if NVIDIA GPU (CUDA) is available on this system (Max GPU speed)
+    cuda_available = False
+    try:
+        import torch
+        cuda_available = torch.cuda.is_available()
+    except Exception:
+        pass
+
+    if cuda_available:
+        try:
+            from ultralytics import YOLO
+            import torch
+            candidate_pt = [
+                PT_PATH,
+                os.path.join(BASE_DIR, "weights", "best.pt"),
+                "best.pt"
+            ]
+            resolved_pt = next((p for p in candidate_pt if os.path.exists(p)), "best.pt")
+            pt_model = YOLO(resolved_pt)
+            active_backend = "ultralytics_cuda"
+            gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NVIDIA GPU"
+            model_metadata = {
+                'engine': f'Ultralytics GPU ({gpu_name}) - Siêu tốc 60 FPS',
+                'weights_file': os.path.basename(resolved_pt),
+                'weights_path': resolved_pt,
+                'device': f'cuda:0 ({gpu_name})',
+                'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            print(f" 🚀 Loaded GPU PyTorch Model: {resolved_pt}")
+            print(f" ⚡ Hardware Device: GPU CUDA:0 ({gpu_name})")
+            print("==================================================")
+            return
+        except Exception as e:
+            print(f" [WARN] Could not load GPU PyTorch model: {e}")
+    
+    # 2. Try ONNX Runtime (Ultra-lightweight ~100MB RAM for CPU / Cloud)
     try:
         import onnxruntime as ort
         candidate_onnx = [
@@ -135,31 +170,8 @@ def load_ai_model():
     except Exception as e:
         print(f" [WARN] Could not load ONNX session: {e}")
 
-    # 2. Fallback to Ultralytics PyTorch if available
-    try:
-        from ultralytics import YOLO
-        candidate_pt = [
-            PT_PATH,
-            os.path.join(BASE_DIR, "weights", "best.pt"),
-            "best.pt"
-        ]
-        resolved_pt = next((p for p in candidate_pt if os.path.exists(p)), "best.pt")
-        pt_model = YOLO(resolved_pt)
-        active_backend = "ultralytics"
-        model_metadata = {
-            'engine': 'Ultralytics PyTorch',
-            'weights_file': os.path.basename(resolved_pt),
-            'weights_path': resolved_pt,
-            'weights_size_mb': round(os.path.getsize(resolved_pt) / (1024 * 1024), 2) if os.path.exists(resolved_pt) else 0,
-            'device': 'CPU',
-            'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
-        }
-        print(f" 🚀 Loaded PyTorch Model: {resolved_pt}")
-        print(f" ✅ Active Backend: Ultralytics")
-        print("==================================================")
-    except Exception as e:
-        print(f" [ERROR] Could not load any AI model: {e}")
-        active_backend = "none"
+    # 3. Fallback
+    active_backend = "none"
 
 load_ai_model()
 
@@ -311,6 +323,53 @@ def model_info():
         'metadata': model_metadata
     })
 
+def format_yolo_detections(res, img_w, img_h):
+    detections = []
+    if not res.boxes:
+        return detections
+    for i, box in enumerate(res.boxes):
+        cls_id = int(box.cls[0].item())
+        conf_val = float(box.conf[0].item())
+        raw_name = res.names.get(cls_id, f"class_{cls_id}").lower().strip()
+        meta = CLASS_META.get(raw_name, {
+            'code': raw_name,
+            'name': f'Rác {raw_name}',
+            'category': 'Rác thải',
+            'color': '#8b5cf6',
+            'icon': 'bi-trash',
+            'binColor': 'Thùng rác phân loại thông thường',
+            'instruction': 'Vui lòng bỏ vào đúng thùng rác quy định.'
+        })
+        xyxy = box.xyxy[0].tolist()
+        bbox = {
+            'x1': int(xyxy[0]),
+            'y1': int(xyxy[1]),
+            'x2': int(xyxy[2]),
+            'y2': int(xyxy[3])
+        }
+        bbox_norm = {
+            'x1': max(0.0, min(1.0, float(xyxy[0] / max(1, img_w)))),
+            'y1': max(0.0, min(1.0, float(xyxy[1] / max(1, img_h)))),
+            'x2': max(0.0, min(1.0, float(xyxy[2] / max(1, img_w)))),
+            'y2': max(0.0, min(1.0, float(xyxy[3] / max(1, img_h))))
+        }
+        detections.append({
+            'id': i + 1,
+            'classCode': meta['code'],
+            'className': meta['name'],
+            'category': meta['category'],
+            'color': meta['color'],
+            'icon': meta['icon'],
+            'confidence': round(conf_val, 3),
+            'confidencePercent': int(round(conf_val * 100)),
+            'bbox': bbox,
+            'bboxNorm': bbox_norm,
+            'instruction': meta['instruction'],
+            'binColor': meta['binColor']
+        })
+    detections.sort(key=lambda d: d['confidence'], reverse=True)
+    return detections
+
 @app.route('/predict_image', methods=['POST'])
 def predict_image():
     try:
@@ -327,7 +386,6 @@ def predict_image():
         if pil_img is None:
             return jsonify({'success': False, 'message': 'Không tìm thấy hình ảnh hợp lệ!'}), 400
             
-        # Fix EXIF orientation for smartphone photos (rotate portrait/landscape correctly)
         try:
             pil_img = ImageOps.exif_transpose(pil_img)
         except Exception:
@@ -339,14 +397,16 @@ def predict_image():
         img_np = np.array(pil_img)
         img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
         
-        # Memory protection: resize giant images (> 1280px) to prevent cloud OOM
-        h, w = img_bgr.shape[:2]
-        max_dim = max(h, w)
-        if max_dim > 1280:
-            scale = 1280.0 / max_dim
-            img_bgr = cv2.resize(img_bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-            
-        if active_backend == "onnx" and session is not None:
+        if active_backend == "ultralytics_cuda" and pt_model is not None:
+            res = pt_model.predict(source=img_bgr, conf=0.25, iou=0.45, device='0', verbose=False)[0]
+            detections = format_yolo_detections(res, orig_w, orig_h)
+        elif active_backend == "onnx" and session is not None:
+            # Memory protection for ONNX
+            h, w = img_bgr.shape[:2]
+            max_dim = max(h, w)
+            if max_dim > 1280:
+                scale = 1280.0 / max_dim
+                img_bgr = cv2.resize(img_bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
             detections = run_onnx_inference(img_bgr, orig_w=orig_w, orig_h=orig_h, conf_thresh=0.25, iou_thresh=0.45)
         else:
             detections = []
@@ -370,7 +430,7 @@ def predict_image():
             'primaryResult': primary,
             'totalObjects': len(detections),
             'inferenceTime': inference_time,
-            'model': f"YOLO11s ONNX ({model_metadata.get('weights_file', 'best.onnx')})"
+            'model': f"YOLO11s ({model_metadata.get('engine', 'GPU')})"
         })
     except Exception as e:
         import traceback
@@ -399,8 +459,10 @@ def predict_frame():
             
         h_f, w_f = img_bgr.shape[:2]
         
-        # Fast ONNX inference on webcam frame (conf=0.30, iou=0.45)
-        if active_backend == "onnx" and session is not None:
+        if active_backend == "ultralytics_cuda" and pt_model is not None:
+            res = pt_model.predict(source=img_bgr, conf=0.30, iou=0.45, device='0', verbose=False)[0]
+            detections = format_yolo_detections(res, w_f, h_f)
+        elif active_backend == "onnx" and session is not None:
             detections = run_onnx_inference(img_bgr, orig_w=w_f, orig_h=h_f, conf_thresh=0.30, iou_thresh=0.45)
         else:
             detections = []

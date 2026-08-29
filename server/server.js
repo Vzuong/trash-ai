@@ -25,11 +25,18 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 // Serve static uploads & AI models
 app.use('/uploads', express.static(config.uploadDir));
 app.get('/best.onnx', (req, res) => {
-  const modelPath = path.join(__dirname, '../best.onnx');
-  if (fs.existsSync(modelPath)) {
+  const candidates = [
+    path.join(__dirname, '../best.onnx'),
+    path.join(__dirname, 'best.onnx'),
+    '/app/best.onnx',
+    path.join(process.cwd(), 'best.onnx')
+  ];
+  const modelPath = candidates.find(p => fs.existsSync(p));
+  if (modelPath) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=31536000');
-    return res.sendFile(modelPath);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.sendFile(path.resolve(modelPath));
   }
   res.status(404).send('Model not found');
 });

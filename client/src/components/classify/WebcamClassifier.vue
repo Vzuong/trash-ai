@@ -121,6 +121,15 @@
             </button>
           </div>
         </div>
+
+        <!-- In-Browser AI Loading Banner -->
+        <div v-if="isDownloadingModel" class="mt-3 p-2 px-3 bg-info-subtle border border-info-subtle rounded-3 small text-info-emphasis d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-2">
+            <span class="spinner-border spinner-border-sm text-info" role="status"></span>
+            <span class="fw-medium">{{ modelLoadingProgress }}</span>
+          </div>
+          <span class="badge bg-info text-white">Đang kích hoạt AI máy (30+ FPS)</span>
+        </div>
       </div>
     </div>
 
@@ -255,21 +264,64 @@ const CLASS_META = {
   organic: { code: 'organic', name: 'Rác hữu cơ', color: '#10b981' }
 };
 
+const modelLoadingProgress = ref('');
+const isDownloadingModel = ref(false);
+
 // Initialize In-Browser ONNX Runtime Web Model for 60 FPS zero-lag inference
 async function initLocalONNX() {
-  if (typeof window !== 'undefined' && window.ort && !ortSession) {
-    try {
-      ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 2);
-      ortSession = await ort.InferenceSession.create('/best.onnx', {
-        executionProviders: ['wasm'],
-        graphOptimizationLevel: 'all'
-      });
-      isLocalModelReady.value = true;
-      console.log('🚀 [ONNX Web] In-browser AI model initialized successfully! (30-60 FPS active)');
-    } catch (e) {
-      console.warn('⚠️ [ONNX Web] In-browser engine loading failed, using optimized Cloud API fallback:', e.message);
-      isLocalModelReady.value = false;
+  if (typeof window === 'undefined' || !window.ort || ortSession) return;
+
+  try {
+    isDownloadingModel.value = true;
+    modelLoadingProgress.value = 'Đang kết nối chip xử lý AI...';
+
+    // 1. Configure WASM path from CDN & single-thread (100% mobile compatibility without SharedArrayBuffer errors)
+    window.ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/';
+    window.ort.env.wasm.numThreads = 1;
+
+    // 2. Fetch model with live progress
+    modelLoadingProgress.value = 'Đang tải AI về chip điện thoại...';
+    const response = await fetch('/best.onnx');
+    if (!response.ok) throw new Error(`HTTP ${response.status} khi tải best.onnx`);
+
+    const contentLength = response.headers.get('content-length');
+    const totalBytes = contentLength ? parseInt(contentLength, 10) : 36200000;
+    let loadedBytes = 0;
+
+    const reader = response.body.getReader();
+    const chunks = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loadedBytes += value.length;
+      const pct = Math.round((loadedBytes / totalBytes) * 100);
+      modelLoadingProgress.value = `Đang nạp AI vào chip máy: ${pct}% (${(loadedBytes / (1024 * 1024)).toFixed(1)}MB)`;
     }
+
+    const modelBuffer = new Uint8Array(loadedBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      modelBuffer.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    modelLoadingProgress.value = 'Đang khởi chạy mô hình AI trên máy...';
+    ortSession = await window.ort.InferenceSession.create(modelBuffer.buffer, {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'all'
+    });
+
+    isLocalModelReady.value = true;
+    isDownloadingModel.value = false;
+    modelLoadingProgress.value = 'Đã kích hoạt AI trên máy (30+ FPS)';
+    console.log('🚀 [ONNX Web] In-browser AI model initialized successfully! (30-60 FPS active)');
+  } catch (e) {
+    console.warn('⚠️ [ONNX Web] In-browser engine loading failed, using Cloud API:', e.message);
+    isLocalModelReady.value = false;
+    isDownloadingModel.value = false;
+    modelLoadingProgress.value = 'Đang dùng Cloud AI';
   }
 }
 

@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from PIL import Image
+from PIL import Image, ImageOps
 
 app = Flask(__name__)
 CORS(app)
@@ -176,8 +176,11 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114)):
     im = cv2.copyMakeBorder(im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
     return im, r, (dw, dh)
 
-def run_onnx_inference(img_bgr, conf_thresh=0.25, iou_thresh=0.45):
-    h_orig, w_orig = img_bgr.shape[:2]
+def run_onnx_inference(img_bgr, orig_w=None, orig_h=None, conf_thresh=0.25, iou_thresh=0.45):
+    h_curr, w_curr = img_bgr.shape[:2]
+    if orig_w is None: orig_w = w_curr
+    if orig_h is None: orig_h = h_curr
+    
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     img_padded, r, (dw, dh) = letterbox(img_rgb)
     
@@ -203,10 +206,10 @@ def run_onnx_inference(img_bgr, conf_thresh=0.25, iou_thresh=0.45):
             x2 = (xc + w / 2 - dw) / r
             y2 = (yc + h / 2 - dh) / r
             
-            x1 = max(0, min(w_orig - 1, x1))
-            y1 = max(0, min(h_orig - 1, y1))
-            x2 = max(0, min(w_orig, x2))
-            y2 = max(0, min(h_orig, y2))
+            x1 = max(0.0, min(float(w_curr), float(x1)))
+            y1 = max(0.0, min(float(h_curr), float(y1)))
+            x2 = max(0.0, min(float(w_curr), float(x2)))
+            y2 = max(0.0, min(float(h_curr), float(y2)))
             
             boxes.append([int(x1), int(y1), int(x2 - x1), int(y2 - y1)])
             confidences.append(conf)
@@ -222,9 +225,21 @@ def run_onnx_inference(img_bgr, conf_thresh=0.25, iou_thresh=0.45):
         for idx in indices:
             i = int(idx)
             bx = boxes[i]
-            x1, y1, bw, bh = bx
-            x2 = x1 + bw
-            y2 = y1 + bh
+            x1_c, y1_c, bw_c, bh_c = bx
+            x2_c = x1_c + bw_c
+            y2_c = y1_c + bh_c
+            
+            # Compute normalized coordinates relative to current processed image
+            norm_x1 = max(0.0, min(1.0, float(x1_c / max(1, w_curr))))
+            norm_y1 = max(0.0, min(1.0, float(y1_c / max(1, h_curr))))
+            norm_x2 = max(0.0, min(1.0, float(x2_c / max(1, w_curr))))
+            norm_y2 = max(0.0, min(1.0, float(y2_c / max(1, h_curr))))
+            
+            # Scaled box relative to original upload image dimensions
+            orig_x1 = int(round(norm_x1 * orig_w))
+            orig_y1 = int(round(norm_y1 * orig_h))
+            orig_x2 = int(round(norm_x2 * orig_w))
+            orig_y2 = int(round(norm_y2 * orig_h))
             
             cls_id = class_ids[i]
             conf_val = confidences[i]
@@ -239,12 +254,12 @@ def run_onnx_inference(img_bgr, conf_thresh=0.25, iou_thresh=0.45):
                 'instruction': 'Vui lòng bỏ vào đúng thùng rác quy định.'
             })
             
-            bbox = {'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2}
+            bbox = {'x1': orig_x1, 'y1': orig_y1, 'x2': orig_x2, 'y2': orig_y2}
             bbox_norm = {
-                'x1': max(0.0, min(1.0, float(x1 / max(1, w_orig)))),
-                'y1': max(0.0, min(1.0, float(y1 / max(1, h_orig)))),
-                'x2': max(0.0, min(1.0, float(x2 / max(1, w_orig)))),
-                'y2': max(0.0, min(1.0, float(y2 / max(1, h_orig))))
+                'x1': norm_x1,
+                'y1': norm_y1,
+                'x2': norm_x2,
+                'y2': norm_y2
             }
             
             detections.append({
@@ -303,17 +318,28 @@ def predict_image():
         data = request.json or {}
         image_path = data.get('image_path')
         
-        img_bgr = None
+        pil_img = None
         if image_path and os.path.exists(image_path):
-            img_bgr = cv2.imread(image_path)
+            pil_img = Image.open(image_path)
         elif 'image' in request.files:
-            file_bytes = np.frombuffer(request.files['image'].read(), np.uint8)
-            img_bgr = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+            pil_img = Image.open(request.files['image'].stream)
             
-        if img_bgr is None:
+        if pil_img is None:
             return jsonify({'success': False, 'message': 'Không tìm thấy hình ảnh hợp lệ!'}), 400
             
-        # Protect memory: resize giant images (> 1280px) to prevent cloud OOM
+        # Fix EXIF orientation for smartphone photos (rotate portrait/landscape correctly)
+        try:
+            pil_img = ImageOps.exif_transpose(pil_img)
+        except Exception:
+            pass
+            
+        pil_img = pil_img.convert('RGB')
+        orig_w, orig_h = pil_img.size
+        
+        img_np = np.array(pil_img)
+        img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+        
+        # Memory protection: resize giant images (> 1280px) to prevent cloud OOM
         h, w = img_bgr.shape[:2]
         max_dim = max(h, w)
         if max_dim > 1280:
@@ -321,12 +347,7 @@ def predict_image():
             img_bgr = cv2.resize(img_bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
             
         if active_backend == "onnx" and session is not None:
-            detections = run_onnx_inference(img_bgr, conf_thresh=0.25, iou_thresh=0.45)
-        elif pt_model is not None:
-            # Fallback PyTorch
-            res = pt_model.predict(source=img_bgr, conf=0.25, iou=0.45, verbose=False)[0]
-            # (Format PyTorch detections if needed)
-            detections = []
+            detections = run_onnx_inference(img_bgr, orig_w=orig_w, orig_h=orig_h, conf_thresh=0.25, iou_thresh=0.45)
         else:
             detections = []
             
@@ -376,9 +397,11 @@ def predict_frame():
         if img_bgr is None:
             return jsonify({'success': False, 'message': 'Invalid frame data'}), 400
             
+        h_f, w_f = img_bgr.shape[:2]
+        
         # Fast ONNX inference on webcam frame (conf=0.30, iou=0.45)
         if active_backend == "onnx" and session is not None:
-            detections = run_onnx_inference(img_bgr, conf_thresh=0.30, iou_thresh=0.45)
+            detections = run_onnx_inference(img_bgr, orig_w=w_f, orig_h=h_f, conf_thresh=0.30, iou_thresh=0.45)
         else:
             detections = []
             

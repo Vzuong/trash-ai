@@ -300,11 +300,19 @@ function drawDetectionOverlay(imgSrc, detections) {
 
     // Draw bounding boxes and labels
     detections.forEach((det) => {
-      const { bbox, color, className, confidencePercent } = det;
-      const x = bbox.x1;
-      const y = bbox.y1;
-      const w = bbox.x2 - bbox.x1;
-      const h = bbox.y2 - bbox.y1;
+      const { bbox, bboxNorm, color, className, confidencePercent } = det;
+      let x, y, w, h;
+      if (bboxNorm) {
+        x = bboxNorm.x1 * canvas.width;
+        y = bboxNorm.y1 * canvas.height;
+        w = (bboxNorm.x2 - bboxNorm.x1) * canvas.width;
+        h = (bboxNorm.y2 - bboxNorm.y1) * canvas.height;
+      } else {
+        x = bbox.x1;
+        y = bbox.y1;
+        w = bbox.x2 - bbox.x1;
+        h = bbox.y2 - bbox.y1;
+      }
 
       // Box outline
       ctx.strokeStyle = color || '#10b981';

@@ -22,8 +22,17 @@ app.use(morgan('dev'));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Serve static uploads
+// Serve static uploads & AI models
 app.use('/uploads', express.static(config.uploadDir));
+app.get('/best.onnx', (req, res) => {
+  const modelPath = path.join(__dirname, '../best.onnx');
+  if (fs.existsSync(modelPath)) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    return res.sendFile(modelPath);
+  }
+  res.status(404).send('Model not found');
+});
 
 // API Routes
 app.use('/api', apiRoutes);

@@ -188,7 +188,7 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114)):
     im = cv2.copyMakeBorder(im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
     return im, r, (dw, dh)
 
-def run_onnx_inference(img_bgr, orig_w=None, orig_h=None, conf_thresh=0.25, iou_thresh=0.45):
+def run_onnx_inference(img_bgr, orig_w=None, orig_h=None, conf_thresh=0.35, iou_thresh=0.45):
     h_curr, w_curr = img_bgr.shape[:2]
     if orig_w is None: orig_w = w_curr
     if orig_h is None: orig_h = h_curr
@@ -223,7 +223,14 @@ def run_onnx_inference(img_bgr, orig_w=None, orig_h=None, conf_thresh=0.25, iou_
             x2 = max(0.0, min(float(w_curr), float(x2)))
             y2 = max(0.0, min(float(h_curr), float(y2)))
             
-            boxes.append([int(x1), int(y1), int(x2 - x1), int(y2 - y1)])
+            bw = x2 - x1
+            bh = y2 - y1
+            
+            # Filter out abnormal full-frame boxes covering > 85% of total image
+            if (bw * bh) / max(1.0, float(w_curr * h_curr)) >= 0.85:
+                continue
+            
+            boxes.append([int(x1), int(y1), int(bw), int(bh)])
             confidences.append(conf)
             class_ids.append(cls_id)
             
@@ -309,6 +316,11 @@ def suppress_nested_boxes(detections, iom_thresh=0.55, iou_thresh=0.35):
         w1 = max(1e-6, b1['x2'] - b1['x1'])
         h1 = max(1e-6, b1['y2'] - b1['y1'])
         area1 = w1 * h1
+        
+        # Discard full-frame boxes covering > 85% area
+        if area1 >= 0.85:
+            continue
+            
         is_dup = False
 
         for kept in keep:
@@ -346,8 +358,8 @@ def health():
         'status': 'online',
         'backend': active_backend,
         'model': model_metadata.get('weights_file', 'unknown'),
-        'classes': list(CLASS_NAMES.values()),
-        'metadata': model_metadata
+        'device': model_metadata.get('device', 'unknown'),
+        'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
     })
 
 @app.route('/reload_model', methods=['GET', 'POST'])
@@ -389,6 +401,14 @@ def format_yolo_detections(res, img_w, img_h):
             'instruction': 'Vui lòng bỏ vào đúng thùng rác quy định.'
         })
         xyxy = box.xyxy[0].tolist()
+        
+        bw = xyxy[2] - xyxy[0]
+        bh = xyxy[3] - xyxy[1]
+        
+        # Discard full-frame boxes covering > 85% area
+        if (bw * bh) / max(1.0, float(img_w * img_h)) >= 0.85:
+            continue
+            
         bbox = {
             'x1': int(xyxy[0]),
             'y1': int(xyxy[1]),
@@ -446,7 +466,7 @@ def predict_image():
         img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
         
         if active_backend == "ultralytics_cuda" and pt_model is not None:
-            res = pt_model.predict(source=img_bgr, conf=0.25, iou=0.45, device='0', verbose=False)[0]
+            res = pt_model.predict(source=img_bgr, conf=0.35, iou=0.45, agnostic_nms=True, device='0', verbose=False)[0]
             detections = format_yolo_detections(res, orig_w, orig_h)
         elif active_backend == "onnx" and session is not None:
             # Memory protection for ONNX
@@ -455,7 +475,7 @@ def predict_image():
             if max_dim > 1280:
                 scale = 1280.0 / max_dim
                 img_bgr = cv2.resize(img_bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-            detections = run_onnx_inference(img_bgr, orig_w=orig_w, orig_h=orig_h, conf_thresh=0.25, iou_thresh=0.45)
+            detections = run_onnx_inference(img_bgr, orig_w=orig_w, orig_h=orig_h, conf_thresh=0.35, iou_thresh=0.45)
         else:
             detections = []
             
@@ -508,10 +528,10 @@ def predict_frame():
         h_f, w_f = img_bgr.shape[:2]
         
         if active_backend == "ultralytics_cuda" and pt_model is not None:
-            res = pt_model.predict(source=img_bgr, conf=0.30, iou=0.45, device='0', verbose=False)[0]
+            res = pt_model.predict(source=img_bgr, conf=0.35, iou=0.45, agnostic_nms=True, device='0', verbose=False)[0]
             detections = format_yolo_detections(res, w_f, h_f)
         elif active_backend == "onnx" and session is not None:
-            detections = run_onnx_inference(img_bgr, orig_w=w_f, orig_h=h_f, conf_thresh=0.30, iou_thresh=0.45)
+            detections = run_onnx_inference(img_bgr, orig_w=w_f, orig_h=h_f, conf_thresh=0.35, iou_thresh=0.45)
         else:
             detections = []
             

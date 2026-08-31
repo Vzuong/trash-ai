@@ -290,7 +290,55 @@ def run_onnx_inference(img_bgr, orig_w=None, orig_h=None, conf_thresh=0.25, iou_
             })
             
     detections.sort(key=lambda d: d['confidence'], reverse=True)
-    return detections
+    return suppress_nested_boxes(detections)
+
+def suppress_nested_boxes(detections, iom_thresh=0.55, iou_thresh=0.35):
+    """
+    Cleans up duplicate multi-scale detection boxes:
+    - Suppresses boxes that are heavily contained within another box (Intersection over Min Area >= 0.55)
+    - Suppresses boxes with IoU >= 0.35
+    """
+    if len(detections) <= 1:
+        return detections
+
+    sorted_dets = sorted(detections, key=lambda d: d['confidence'], reverse=True)
+    keep = []
+
+    for det in sorted_dets:
+        b1 = det['bboxNorm']
+        w1 = max(1e-6, b1['x2'] - b1['x1'])
+        h1 = max(1e-6, b1['y2'] - b1['y1'])
+        area1 = w1 * h1
+        is_dup = False
+
+        for kept in keep:
+            b2 = kept['bboxNorm']
+            w2 = max(1e-6, b2['x2'] - b2['x1'])
+            h2 = max(1e-6, b2['y2'] - b2['y1'])
+            area2 = w2 * h2
+
+            inter_x1 = max(b1['x1'], b2['x1'])
+            inter_y1 = max(b1['y1'], b2['y1'])
+            inter_x2 = min(b1['x2'], b2['x2'])
+            inter_y2 = min(b1['y2'], b2['y2'])
+
+            if inter_x2 > inter_x1 and inter_y2 > inter_y1:
+                inter_area = (inter_x2 - inter_x1) * (inter_y2 - inter_y1)
+                min_area = min(area1, area2)
+                union_area = area1 + area2 - inter_area
+                iom = inter_area / min_area
+                iou = inter_area / max(1e-6, union_area)
+
+                if iom >= iom_thresh or iou >= iou_thresh:
+                    is_dup = True
+                    break
+
+        if not is_dup:
+            keep.append(det)
+
+    for idx, d in enumerate(keep):
+        d['id'] = idx + 1
+    return keep
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -368,7 +416,7 @@ def format_yolo_detections(res, img_w, img_h):
             'binColor': meta['binColor']
         })
     detections.sort(key=lambda d: d['confidence'], reverse=True)
-    return detections
+    return suppress_nested_boxes(detections)
 
 @app.route('/predict_image', methods=['POST'])
 def predict_image():

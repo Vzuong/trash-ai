@@ -45,7 +45,7 @@ def main():
     log("[3/3] 📡 Dang ket noi Ngrok Tunnel vao domain co dinh...")
     ngrok_config = os.path.join(base_dir, "ngrok.yml")
     ngrok_proc = subprocess.Popen(
-        ["ngrok", "http", "5000", "--config", ngrok_config],
+        ["ngrok", "http", "5000", "--url=serving-numerous-spree.ngrok-free.dev", "--config", ngrok_config],
         cwd=base_dir,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL

@@ -22,20 +22,44 @@ app.use(morgan('dev'));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Serve static uploads & AI models
+// Serve static uploads, WASM & AI models
 app.use('/uploads', express.static(config.uploadDir));
-app.get('/best.onnx', (req, res) => {
+
+// Serve WASM files
+const wasmCandidates = [
+  path.join(__dirname, '../client/public/wasm'),
+  path.join(__dirname, '../client/dist/wasm'),
+  '/app/client/public/wasm',
+  '/app/client/dist/wasm'
+];
+const wasmDir = wasmCandidates.find(p => fs.existsSync(p));
+if (wasmDir) {
+  app.use('/wasm', express.static(wasmDir, {
+    setHeaders: (res, filePath) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      if (filePath.endsWith('.wasm')) {
+        res.setHeader('Content-Type', 'application/wasm');
+      }
+    }
+  }));
+}
+
+// Serve best.onnx
+app.get(['/best.onnx', '/models/best.onnx'], (req, res) => {
   const candidates = [
+    path.join(__dirname, '../client/public/models/best.onnx'),
+    path.join(__dirname, '../client/dist/models/best.onnx'),
     path.join(__dirname, '../best.onnx'),
     path.join(__dirname, 'best.onnx'),
     '/app/best.onnx',
+    '/app/client/public/models/best.onnx',
     path.join(process.cwd(), 'best.onnx')
   ];
   const modelPath = candidates.find(p => fs.existsSync(p));
   if (modelPath) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     return res.sendFile(path.resolve(modelPath));
   }
   res.status(404).send('Model not found');

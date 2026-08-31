@@ -51,6 +51,10 @@ export const apiService = {
   },
 
   // History
+  saveWebcamHistory(historyData) {
+    return apiClient.post('/history', historyData);
+  },
+
   getHistory(params = {}) {
     return apiClient.get('/history', { params });
   },

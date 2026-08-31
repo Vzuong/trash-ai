@@ -1,208 +1,227 @@
 <template>
-  <div class="row g-4">
-    <!-- Left Column: Video & Realtime Canvas Overlay -->
-    <div class="col-lg-8">
-      <div class="eco-card p-3 p-md-4 d-flex flex-column h-100">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-camera-video-fill text-success fs-5"></i>
-            <h6 class="fw-bold mb-0">Nhận diện rác thải qua Webcam thời gian thực</h6>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <span v-if="isStreaming && !isPaused" class="badge bg-success-subtle text-success border border-success-subtle d-flex align-items-center gap-1">
-              <span class="hud-dot"></span> Đang nhận diện Live (⚡ NVIDIA GPU)
-            </span>
-            <span v-else-if="isPaused" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-              <i class="bi bi-pause-circle me-1"></i> Tạm dừng
-            </span>
-            <span v-else class="badge bg-secondary-subtle text-secondary border">
-              Camera đang tắt
-            </span>
-          </div>
-        </div>
-
-        <!-- Camera Frame Box -->
-        <div class="webcam-container flex-grow-1 position-relative d-flex align-items-center justify-content-center">
-          <!-- Video Stream -->
-          <video 
-            ref="videoElement" 
-            class="webcam-video" 
-            autoplay 
-            playsinline 
-            muted
-            v-show="isStreaming"
-          ></video>
-
-          <!-- Realtime Canvas Overlay for BBoxes -->
-          <canvas 
-            ref="overlayCanvas" 
-            class="webcam-canvas"
-            v-show="isStreaming"
-          ></canvas>
-
-          <!-- Camera Inactive / Placeholder State -->
-          <div v-if="!isStreaming && !cameraError" class="text-center text-white p-4">
-            <div class="mb-3">
-              <div class="rounded-circle bg-white bg-opacity-10 p-3 d-inline-flex">
-                <i class="bi bi-camera-video display-5 text-success"></i>
-              </div>
-            </div>
-            <h5 class="fw-bold mb-2">Camera chưa được kích hoạt</h5>
-            <p class="text-white-50 small mb-4 max-w-sm mx-auto">
-              Nhấn <strong>"Bật camera"</strong> để cấp quyền truy cập camera và nhận diện rác thải tốc độ cao bằng GPU NVIDIA.
-            </p>
-            <button @click="startCamera" class="btn btn-eco-primary btn-lg d-inline-flex align-items-center gap-2 shadow">
-              <i class="bi bi-play-circle-fill fs-5"></i> Bật camera ngay
-            </button>
-          </div>
-
-          <!-- Camera Error State -->
-          <div v-if="cameraError" class="text-center text-white p-4 max-w-sm">
-            <div class="text-danger mb-3">
-              <i class="bi bi-exclamation-octagon display-4"></i>
-            </div>
-            <h6 class="fw-bold text-danger mb-2">Không thể truy cập camera</h6>
-            <p class="text-white-50 small mb-3">{{ cameraError }}</p>
-            <button @click="startCamera" class="btn btn-outline-light btn-sm">
-              <i class="bi bi-arrow-clockwise me-1"></i> Thử lại
-            </button>
-          </div>
-        </div>
-
-        <!-- Controls Toolbar -->
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 pt-3 border-top">
-          <!-- Left Actions -->
-          <div class="d-flex gap-2">
-            <button 
-              v-if="!isStreaming" 
-              @click="startCamera" 
-              class="btn btn-eco-primary btn-sm d-flex align-items-center gap-1"
-            >
-              <i class="bi bi-camera-video-fill"></i> Bật camera
-            </button>
-            <button 
-              v-else 
-              @click="stopCamera" 
-              class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1"
-            >
-              <i class="bi bi-stop-circle-fill"></i> Tắt camera
-            </button>
-
-            <button 
-              v-if="isStreaming" 
-              @click="togglePause" 
-              class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-            >
-              <i :class="['bi', isPaused ? 'bi-play-fill' : 'bi-pause-fill']"></i>
-              <span>{{ isPaused ? 'Tiếp tục' : 'Tạm dừng' }}</span>
-            </button>
-          </div>
-
-          <!-- Real-time HUD Stats -->
-          <div v-if="isStreaming && !isPaused" class="d-flex align-items-center gap-2 px-3 py-1.5 bg-dark text-white rounded-pill small font-monospace shadow-sm">
-            <span class="hud-dot"></span>
-            <span>FPS: <strong class="text-success">{{ currentFps }}</strong></span>
-            <span class="text-white-50">|</span>
-            <span>Độ trễ: <strong>{{ currentInferenceTime }} ms</strong></span>
-            <span class="text-white-50">|</span>
-            <span class="badge bg-success-subtle text-success py-0 px-1">⚡ GPU Siêu Tốc</span>
-          </div>
-
-          <!-- Right Action: Capture Frame & Classify -->
-          <div>
-            <button 
-              @click="captureAndSave" 
-              class="btn btn-eco-soft btn-sm d-flex align-items-center gap-2"
-              :disabled="!isStreaming || isCapturing"
-            >
-              <span v-if="isCapturing" class="spinner-border spinner-border-sm" role="status"></span>
-              <i v-else class="bi bi-camera-fill text-success fs-6"></i>
-              <span><strong>Chụp ảnh & Lưu lịch sử</strong></span>
-            </button>
-          </div>
-        </div>
+  <div class="webcam-classifier">
+    <!-- Model Loading Banner / Status -->
+    <div v-if="modelStatus === 'loading'" class="alert alert-info d-flex align-items-center mb-3 shadow-sm border-0">
+      <div class="spinner-border spinner-border-sm text-info me-3" role="status"></div>
+      <div>
+        <strong>Đang tải mô hình AI vào trình duyệt...</strong>
+        <div class="small text-muted">Mô hình ONNX đang được nạp trực tiếp vào RAM thiết bị của bạn để nhận diện thời gian thực (không tốn dung lượng mạng).</div>
       </div>
     </div>
 
-    <!-- Right Column: Live Detection HUD & Capture Feedback -->
-    <div class="col-lg-4">
-      <div class="eco-card p-3 p-md-4 h-100 d-flex flex-column">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-activity text-success fs-5"></i>
-            <h6 class="fw-bold mb-0">Giám sát Real-time</h6>
-          </div>
-          <span class="badge bg-success-subtle text-success border border-success-subtle">⚡ NVIDIA GPU (30+ FPS)</span>
-        </div>
+    <div v-else-if="modelStatus === 'error'" class="alert alert-danger d-flex align-items-center mb-3 shadow-sm border-0">
+      <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+      <div>
+        <strong>Lỗi nạp mô hình AI:</strong>
+        <div class="small">{{ loadErrorMessage || 'Không thể khởi tạo ONNX Runtime Web. Vui lòng thử lại.' }}</div>
+        <button class="btn btn-sm btn-outline-danger mt-2" @click="retryLoadModel">
+          <i class="bi bi-arrow-clockwise me-1"></i> Tải lại mô hình
+        </button>
+      </div>
+    </div>
 
-        <!-- Real-time Active Classification Item -->
-        <div v-if="isStreaming && activeDetections.length > 0" class="mb-3">
-          <div 
-            class="p-3 rounded-3 border mb-3"
-            :style="{ backgroundColor: (activeDetections[0]?.color || '#10b981') + '15', borderColor: (activeDetections[0]?.color || '#10b981') + '40' }"
-          >
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <span class="badge bg-white text-dark border small px-2">Vật thể đang thấy</span>
-              <span class="fw-bold text-dark fs-5">{{ activeDetections[0]?.confidencePercent }}%</span>
-            </div>
-            <h4 class="fw-bold mb-0 text-dark">{{ activeDetections[0]?.className }}</h4>
-          </div>
+    <div class="row g-4">
+      <!-- Camera Preview Column -->
+      <div class="col-lg-8">
+        <div class="card border-0 shadow-sm overflow-hidden position-relative bg-dark rounded-4">
+          <!-- Video Frame & Overlay Canvas Container -->
+          <div class="ratio ratio-4x3 position-relative video-container">
+            <video
+              ref="videoElement"
+              autoplay
+              playsinline
+              muted
+              class="w-100 h-100 object-fit-cover"
+            ></video>
 
-          <!-- List of all visible objects in current frame -->
-          <h6 class="small fw-bold text-muted text-uppercase mb-2">Danh sách rác trong khung hình:</h6>
-          <div class="d-flex flex-column gap-2 mb-3">
-            <div 
-              v-for="(obj, i) in activeDetections" 
-              :key="i"
-              class="p-2 px-3 rounded-2 bg-light border d-flex align-items-center justify-content-between"
+            <!-- Bounding Box Canvas Overlay -->
+            <canvas
+              ref="overlayCanvas"
+              class="position-absolute top-0 start-0 w-100 h-100 pointer-events-none"
+            ></canvas>
+
+            <!-- Video Inactive Placeholder -->
+            <div
+              v-if="!isStreaming"
+              class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center text-white bg-dark bg-opacity-75"
             >
-              <div class="d-flex align-items-center gap-2">
-                <span class="badge rounded-circle p-1" :style="{ backgroundColor: obj.color }"> </span>
-                <span class="small fw-semibold text-dark">{{ obj.className }}</span>
-              </div>
-              <span class="badge bg-white text-dark border small fw-bold">{{ obj.confidencePercent }}%</span>
+              <i class="bi bi-camera-video display-1 text-muted mb-3"></i>
+              <h5 class="fw-bold">Camera chưa bật</h5>
+              <p class="text-white-50 small mb-3 text-center px-4">
+                Nhấn <strong>"Bật camera"</strong> để quét và phân loại rác thải tự động trực tiếp trên thiết bị của bạn.
+              </p>
+              <button
+                class="btn btn-success btn-lg px-4 rounded-pill shadow"
+                :disabled="modelStatus !== 'ready'"
+                @click="startCamera"
+              >
+                <i class="bi bi-play-fill me-1"></i> Bật camera
+              </button>
+            </div>
+          </div>
+
+          <!-- Bottom Realtime Stats Bar -->
+          <div class="card-footer bg-dark border-top border-secondary py-2 px-3 d-flex flex-wrap align-items-center justify-content-between text-white small">
+            <div class="d-flex align-items-center gap-3">
+              <span class="d-flex align-items-center gap-1">
+                <span class="badge rounded-circle p-1" :class="isStreaming ? 'bg-success' : 'bg-secondary'"> </span>
+                <span class="fw-semibold">{{ isStreaming ? (isPaused ? 'Tạm dừng' : 'Đang nhận diện') : 'Chờ bật camera' }}</span>
+              </span>
+              <span v-if="isStreaming" class="text-white-50">|</span>
+              <span v-if="isStreaming" class="text-white-50">
+                FPS: <strong class="text-white">{{ currentFps }}</strong>
+              </span>
+              <span v-if="isStreaming" class="text-white-50">|</span>
+              <span v-if="isStreaming" class="text-white-50">
+                Độ trễ: <strong class="text-success">{{ currentInferenceTime }} ms</strong>
+              </span>
+            </div>
+
+            <!-- Engine Badge -->
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-secondary text-white small" title="Mô hình AI chạy 100% trong trình duyệt">
+                <i class="bi bi-cpu me-1"></i> {{ modelBackend || 'Client-Side AI' }}
+              </span>
+              <span v-if="detectedCount > 0" class="badge bg-primary">
+                {{ detectedCount }} vật thể
+              </span>
             </div>
           </div>
         </div>
 
-        <!-- Idle Status when camera is on but no trash detected -->
-        <div v-else-if="isStreaming && activeDetections.length === 0" class="text-center py-4 my-auto">
-          <div class="text-muted mb-2">
-            <i class="bi bi-view-finder display-5 text-success"></i>
+        <!-- Camera Controls -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
+          <div class="d-flex gap-2">
+            <button
+              v-if="!isStreaming"
+              class="btn btn-success px-4"
+              :disabled="modelStatus !== 'ready'"
+              @click="startCamera"
+            >
+              <i class="bi bi-camera-video me-1"></i> Bật camera
+            </button>
+            <template v-else>
+              <button class="btn btn-outline-danger px-3" @click="stopCamera">
+                <i class="bi bi-stop-fill me-1"></i> Tắt camera
+              </button>
+              <button class="btn btn-outline-secondary px-3" @click="togglePause">
+                <i :class="isPaused ? 'bi bi-play-fill' : 'bi bi-pause-fill'" class="me-1"></i>
+                {{ isPaused ? 'Tiếp tục' : 'Tạm dừng' }}
+              </button>
+              <button
+                v-if="hasMultipleCameras"
+                class="btn btn-outline-dark px-3"
+                @click="switchCamera"
+                title="Đổi camera trước/sau"
+              >
+                <i class="bi bi-arrow-repeat me-1"></i> Đổi camera
+              </button>
+            </template>
           </div>
-          <h6 class="fw-bold text-dark">Đang quét khung hình...</h6>
-          <p class="text-muted small mb-0 px-3">
-            Hãy đưa các vật thể rác thải (chai nhựa, lon nhôm, giấy, bìa carton) trước ống kính camera.
-          </p>
-        </div>
 
-        <!-- Inactive Camera State -->
-        <div v-else class="text-center py-4 my-auto">
-          <div class="text-muted mb-2">
-            <i class="bi bi-camera-video-off display-6 text-muted"></i>
-          </div>
-          <h6 class="fw-bold text-muted">Webcam chưa bật</h6>
-          <p class="text-muted small mb-0">
-            Bấm nút <strong>"Bật camera"</strong> để xem bảng phân tích thời gian thực.
-          </p>
+          <button
+            v-if="isStreaming"
+            class="btn btn-primary px-4 shadow-sm"
+            :disabled="isCapturing"
+            @click="captureAndSave"
+          >
+            <span v-if="isCapturing" class="spinner-border spinner-border-sm me-1"></span>
+            <i v-else class="bi bi-camera me-1"></i>
+            Chụp ảnh & Lưu lịch sử
+          </button>
         </div>
+      </div>
 
-        <!-- Captured Frame Notification Card (Appears when user clicks Capture) -->
-        <div v-if="lastCaptured" class="p-3 bg-success-subtle border border-success-subtle rounded-3 mt-auto">
-          <div class="d-flex align-items-center justify-content-between mb-1">
-            <span class="badge bg-success text-white small">
-              <i class="bi bi-check-lg me-1"></i> Đã chụp & lưu
-            </span>
-            <span class="small text-muted">{{ lastCaptured.time }}</span>
+      <!-- Real-Time Classification Results Column -->
+      <div class="col-lg-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100 p-4 d-flex flex-column">
+          <h5 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
+            <i class="bi bi-stars text-success"></i>
+            Kết quả phân loại
+          </h5>
+
+          <!-- When Trash Objects Detected -->
+          <div v-if="activeDetections.length > 0" class="d-flex flex-column gap-3">
+            <!-- Primary Detection Card -->
+            <div class="p-3 rounded-3 border" :style="{ backgroundColor: activeDetections[0].color + '15', borderColor: activeDetections[0].color + '40' }">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="badge text-white small" :style="{ backgroundColor: activeDetections[0].color }">
+                  <i :class="activeDetections[0].icon" class="me-1"></i> {{ activeDetections[0].category }}
+                </span>
+                <span class="fs-5 fw-bold" :style="{ color: activeDetections[0].color }">
+                  {{ activeDetections[0].confidencePercent }}%
+                </span>
+              </div>
+              <h4 class="fw-bold mb-1" :style="{ color: activeDetections[0].color }">
+                {{ activeDetections[0].className }}
+              </h4>
+              <p class="small text-dark mb-2">
+                <strong>Thùng rác:</strong> {{ activeDetections[0].binColor }}
+              </p>
+              <div class="small text-muted bg-white p-2 rounded-2 border">
+                <i class="bi bi-info-circle text-primary me-1"></i>
+                {{ activeDetections[0].instruction }}
+              </div>
+            </div>
+
+            <!-- List of other detected objects -->
+            <div v-if="activeDetections.length > 1">
+              <h6 class="small fw-bold text-muted text-uppercase mb-2">Các vật thể khác trong khung hình:</h6>
+              <div class="d-flex flex-column gap-2">
+                <div
+                  v-for="(obj, i) in activeDetections.slice(1)"
+                  :key="i"
+                  class="p-2 px-3 rounded-2 bg-light border d-flex align-items-center justify-content-between"
+                >
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge rounded-circle p-1" :style="{ backgroundColor: obj.color }"> </span>
+                    <span class="small fw-semibold text-dark">{{ obj.className }}</span>
+                  </div>
+                  <span class="badge bg-white text-dark border small fw-bold">{{ obj.confidencePercent }}%</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="fw-bold text-dark small mt-1">
-            {{ lastCaptured.className }} ({{ lastCaptured.confidencePercent }}%)
+
+          <!-- When Camera Active But No Trash Detected -->
+          <div v-else-if="isStreaming" class="text-center py-5 my-auto">
+            <div class="text-muted mb-3">
+              <i class="bi bi-view-finder display-4 text-success opacity-75"></i>
+            </div>
+            <h6 class="fw-bold text-dark">Đang quét khung hình...</h6>
+            <p class="text-muted small mb-0 px-3">
+              Hãy đưa các vật thể rác thải (chai nhựa, lon nhôm, giấy, bìa carton) trước ống kính camera.
+            </p>
           </div>
-          <div class="d-flex justify-content-between align-items-center mt-2">
-            <span class="text-muted small">Thời gian: {{ lastCaptured.inferenceTime }}ms</span>
-            <router-link to="/history" class="btn btn-link btn-sm p-0 text-success fw-semibold text-decoration-none">
-              Xem lịch sử →
-            </router-link>
+
+          <!-- When Camera Inactive -->
+          <div v-else class="text-center py-5 my-auto">
+            <div class="text-muted mb-3">
+              <i class="bi bi-camera-video-off display-4 text-muted"></i>
+            </div>
+            <h6 class="fw-bold text-muted">Webcam chưa bật</h6>
+            <p class="text-muted small mb-0 px-3">
+              Nhấn nút <strong>"Bật camera"</strong> để xem kết quả phân loại thời gian thực trực tiếp trên thiết bị.
+            </p>
+          </div>
+
+          <!-- Last Captured Snapshot Card -->
+          <div v-if="lastCaptured" class="p-3 bg-success-subtle border border-success-subtle rounded-3 mt-auto pt-3">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <span class="badge bg-success text-white small">
+                <i class="bi bi-check-lg me-1"></i> Đã lưu lịch sử
+              </span>
+              <span class="small text-muted">{{ lastCaptured.time }}</span>
+            </div>
+            <div class="fw-bold text-dark small mt-1">
+              {{ lastCaptured.className }} ({{ lastCaptured.confidencePercent }}%)
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <span class="text-muted small">Thời gian xử lý: {{ lastCaptured.inferenceTime }}ms</span>
+              <router-link to="/history" class="btn btn-link btn-sm p-0 text-success fw-semibold text-decoration-none">
+                Xem lịch sử →
+              </router-link>
+            </div>
           </div>
         </div>
       </div>
@@ -212,186 +231,98 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import yoloWebEngine, { CONF_THRESHOLD, IOU_THRESHOLD } from '../../services/yoloWebEngine';
+import transformBBoxToVideoOverlay from '../../utils/coordinateTransform';
 import apiService from '../../services/api';
 
 const videoElement = ref(null);
 const overlayCanvas = ref(null);
 
+const modelStatus = ref('loading'); // 'loading' | 'ready' | 'error'
+const modelBackend = ref('');
+const loadErrorMessage = ref('');
+
 const isStreaming = ref(false);
 const isPaused = ref(false);
 const isCapturing = ref(false);
-const cameraError = ref('');
-const currentFps = ref(30);
-const currentInferenceTime = ref(20);
+const hasMultipleCameras = ref(false);
+const currentFacingMode = ref('environment');
+
+const currentFps = ref(0);
+const currentInferenceTime = ref(0);
 const detectedCount = ref(0);
 const activeDetections = ref([]);
 const lastCaptured = ref(null);
 
 let mediaStream = null;
 let animationFrameId = null;
-let lastFrameTime = performance.now();
+let lastFpsTimestamp = performance.now();
 let frameCount = 0;
 let isInferencing = false;
+let resizeObserver = null;
 
-// Temporal Box Tracking & Smoothing State
-let trackedBoxes = [];
-
-function calculateIoU(b1, b2) {
-  const xA = Math.max(b1.x1, b2.x1);
-  const yA = Math.max(b1.y1, b2.y1);
-  const xB = Math.min(b1.x2, b2.x2);
-  const yB = Math.min(b1.y2, b2.y2);
-  const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
-  const boxAArea = Math.max(0, b1.x2 - b1.x1) * Math.max(0, b1.y2 - b1.y1);
-  const boxBArea = Math.max(0, b2.x2 - b2.x1) * Math.max(0, b2.y2 - b2.y1);
-  const union = boxAArea + boxBArea - interArea;
-  return union > 0 ? interArea / union : 0;
-}
-
-function updateTrackedDetections(rawDetections) {
-  if (!rawDetections || rawDetections.length === 0) {
-    trackedBoxes = [];
-    return;
+async function initModel() {
+  modelStatus.value = 'loading';
+  try {
+    await yoloWebEngine.loadModel('/models/best.onnx');
+    modelStatus.value = 'ready';
+    modelBackend.value = yoloWebEngine.activeProvider;
+  } catch (err) {
+    console.error('[WebcamClassifier] Lỗi nạp mô hình ONNX Web:', err);
+    modelStatus.value = 'error';
+    loadErrorMessage.value = err.message || 'Không thể khởi tạo mô hình AI trên trình duyệt.';
   }
-
-  const matched = new Set();
-  const WINDOW_SIZE = 5;
-
-  rawDetections.forEach((det) => {
-    const rawBox = det.bboxNorm || {
-      x1: (det.bbox?.x1 || 0) / 640,
-      y1: (det.bbox?.y1 || 0) / 480,
-      x2: (det.bbox?.x2 || 100) / 640,
-      y2: (det.bbox?.y2 || 100) / 480
-    };
-
-    let bestMatch = null;
-    let bestIoU = 0.25;
-
-    trackedBoxes.forEach((t) => {
-      if (!matched.has(t)) {
-        const iou = calculateIoU(t.targetBbox, rawBox);
-        if (iou > bestIoU) {
-          bestIoU = iou;
-          bestMatch = t;
-        }
-      }
-    });
-
-    if (bestMatch) {
-      matched.add(bestMatch);
-      bestMatch.targetBbox = rawBox;
-      bestMatch.missCount = 0;
-      bestMatch.history.push({
-        classCode: det.classCode,
-        className: det.className,
-        color: det.color,
-        confidence: det.confidencePercent
-      });
-      if (bestMatch.history.length > WINDOW_SIZE) bestMatch.history.shift();
-
-      bestMatch.className = det.className;
-      bestMatch.color = det.color;
-      bestMatch.targetConf = det.confidencePercent;
-    } else {
-      const newBox = {
-        id: `box_${Date.now()}_${Math.floor(Math.random()*1000)}`,
-        className: det.className,
-        color: det.color,
-        currentBbox: { ...rawBox },
-        targetBbox: { ...rawBox },
-        currentConf: det.confidencePercent,
-        targetConf: det.confidencePercent,
-        missCount: 0,
-        history: [{
-          classCode: det.classCode,
-          className: det.className,
-          color: det.color,
-          confidence: det.confidencePercent
-        }]
-      };
-      trackedBoxes.push(newBox);
-      matched.add(newBox);
-    }
-  });
-
-  trackedBoxes.forEach((t) => {
-    if (!matched.has(t)) t.missCount++;
-  });
-  trackedBoxes = trackedBoxes.filter((t) => t.missCount <= 1);
 }
 
-function renderSmoothBoxes(canvas) {
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function retryLoadModel() {
+  initModel();
+}
 
-  if (trackedBoxes.length === 0) return;
-
-  const cw = canvas.width;
-  const ch = canvas.height;
-  const LERP_SMOOTH = 0.45;
-
-  trackedBoxes.forEach((t) => {
-    t.currentBbox.x1 += (t.targetBbox.x1 - t.currentBbox.x1) * LERP_SMOOTH;
-    t.currentBbox.y1 += (t.targetBbox.y1 - t.currentBbox.y1) * LERP_SMOOTH;
-    t.currentBbox.x2 += (t.targetBbox.x2 - t.currentBbox.x2) * LERP_SMOOTH;
-    t.currentBbox.y2 += (t.targetBbox.y2 - t.currentBbox.y2) * LERP_SMOOTH;
-    t.currentConf += (t.targetConf - t.currentConf) * 0.3;
-
-    const x = t.currentBbox.x1 * cw;
-    const y = t.currentBbox.y1 * ch;
-    const w = (t.currentBbox.x2 - t.currentBbox.x1) * cw;
-    const h = (t.currentBbox.y2 - t.currentBbox.y1) * ch;
-
-    const displayConf = Math.round(t.currentConf);
-    const color = t.color || '#10b981';
-
-    ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(3, Math.round(cw / 250));
-    ctx.strokeRect(x, y, w, h);
-
-    ctx.fillStyle = color + '25';
-    ctx.fillRect(x, y, w, h);
-
-    const label = `${t.className} ${displayConf}%`;
-    const fontSize = Math.max(14, Math.round(cw / 45));
-    ctx.font = `bold ${fontSize}px Inter, sans-serif`;
-    const textMetrics = ctx.measureText(label);
-    const textWidth = textMetrics.width;
-    const textHeight = fontSize * 1.35;
-
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y - textHeight > 0 ? y - textHeight : y, textWidth + 12, textHeight);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(label, x + 6, (y - textHeight > 0 ? y - textHeight : y) + fontSize);
-  });
+async function checkCameras() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+    hasMultipleCameras.value = videoInputs.length > 1;
+  } catch (e) {
+    hasMultipleCameras.value = false;
+  }
 }
 
 async function startCamera() {
-  cameraError.value = '';
+  if (modelStatus.value !== 'ready') {
+    alert('Mô hình AI đang được tải, vui lòng chờ trong giây lát...');
+    return;
+  }
+
   try {
     const constraints = {
       video: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        facingMode: 'environment'
+        facingMode: { ideal: currentFacingMode.value },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
       },
       audio: false
     };
 
-    mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (e) {
+      // Fallback to any camera
+      mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    }
+
     if (videoElement.value) {
       videoElement.value.srcObject = mediaStream;
       videoElement.value.onloadedmetadata = () => {
         isStreaming.value = true;
         isPaused.value = false;
+        syncCanvasSize();
         startDetectionLoop();
       };
     }
   } catch (err) {
-    console.error('Lỗi camera:', err);
-    cameraError.value = 'Không thể truy cập camera. Vui lòng cấp quyền truy cập trong trình duyệt.';
+    console.error('[WebcamClassifier] Lỗi truy cập camera:', err);
+    alert('Không thể truy cập camera. Vui lòng cấp quyền truy cập máy ảnh trong trình duyệt.');
     isStreaming.value = false;
   }
 }
@@ -405,47 +336,78 @@ function stopCamera() {
     mediaStream.getTracks().forEach((t) => t.stop());
     mediaStream = null;
   }
-  if (videoElement.value) videoElement.value.srcObject = null;
+  if (videoElement.value) {
+    videoElement.value.srcObject = null;
+  }
+
   isStreaming.value = false;
   isPaused.value = false;
   activeDetections.value = [];
   detectedCount.value = 0;
-  trackedBoxes = [];
+  clearCanvas();
 }
 
 function togglePause() {
   isPaused.value = !isPaused.value;
-  if (!isPaused.value) startDetectionLoop();
+  if (!isPaused.value) {
+    startDetectionLoop();
+  }
+}
+
+async function switchCamera() {
+  currentFacingMode.value = currentFacingMode.value === 'environment' ? 'user' : 'environment';
+  stopCamera();
+  await startCamera();
+}
+
+function syncCanvasSize() {
+  const video = videoElement.value;
+  const canvas = overlayCanvas.value;
+  if (!video || !canvas) return;
+
+  const rect = video.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0) {
+    canvas.width = Math.round(rect.width);
+    canvas.height = Math.round(rect.height);
+  }
+}
+
+function clearCanvas() {
+  const canvas = overlayCanvas.value;
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
 }
 
 function startDetectionLoop() {
-  let lastInferenceTimestamp = 0;
-  const INFERENCE_INTERVAL = 80; // ~12-15 FPS inference rate
-
-  const loop = async (timestamp) => {
+  const loop = async () => {
     if (!isStreaming.value || isPaused.value) return;
 
+    // FPS counter
     frameCount++;
     const now = performance.now();
-    if (now - lastFrameTime >= 1000) {
+    if (now - lastFpsTimestamp >= 1000) {
       currentFps.value = frameCount;
       frameCount = 0;
-      lastFrameTime = now;
+      lastFpsTimestamp = now;
     }
 
-    const canvas = overlayCanvas.value;
     const video = videoElement.value;
-    if (canvas && video && video.readyState === 4) {
-      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
-      }
-      renderSmoothBoxes(canvas);
-    }
 
-    if (timestamp - lastInferenceTimestamp >= INFERENCE_INTERVAL && !isInferencing) {
-      lastInferenceTimestamp = timestamp;
-      await processFrameInference();
+    if (video && video.readyState >= 2 && !isInferencing && modelStatus.value === 'ready') {
+      isInferencing = true;
+      try {
+        const result = await yoloWebEngine.detect(video, CONF_THRESHOLD, IOU_THRESHOLD);
+        currentInferenceTime.value = result.inferenceTime;
+        activeDetections.value = result.detections;
+        detectedCount.value = result.totalObjects;
+        renderOverlayBoxes(result.detections);
+      } catch (err) {
+        console.warn('[WebcamClassifier] Lỗi frame inference:', err);
+      } finally {
+        isInferencing = false;
+      }
     }
 
     animationFrameId = requestAnimationFrame(loop);
@@ -454,42 +416,47 @@ function startDetectionLoop() {
   animationFrameId = requestAnimationFrame(loop);
 }
 
-async function processFrameInference() {
+function renderOverlayBoxes(detections) {
+  const canvas = overlayCanvas.value;
   const video = videoElement.value;
-  if (!video || video.readyState !== 4) return;
+  if (!canvas || !video) return;
 
-  isInferencing = true;
-  const t0 = performance.now();
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  try {
-    const vWidth = video.videoWidth || 640;
-    const vHeight = video.videoHeight || 480;
+  if (!detections || detections.length === 0) return;
 
-    const offscreen = document.createElement('canvas');
-    offscreen.width = vWidth;
-    offscreen.height = vHeight;
-    const offCtx = offscreen.getContext('2d');
-    offCtx.drawImage(video, 0, 0, vWidth, vHeight);
-    const frameBase64 = offscreen.toDataURL('image/jpeg', 0.80);
+  detections.forEach((det) => {
+    const coords = transformBBoxToVideoOverlay(det.bboxNorm, video, canvas);
+    if (!coords.visible) return;
 
-    const response = await apiService.predictWebcam(frameBase64, false);
-    if (response.success && response.data) {
-      currentInferenceTime.value = response.data.inferenceTime || Math.round(performance.now() - t0);
-      activeDetections.value = response.data.detections || [];
-      detectedCount.value = response.data.totalObjects || 0;
-      updateTrackedDetections(activeDetections.value);
-    } else {
-      activeDetections.value = [];
-      detectedCount.value = 0;
-      trackedBoxes = [];
-    }
-  } catch (err) {
-    activeDetections.value = [];
-    detectedCount.value = 0;
-    trackedBoxes = [];
-  } finally {
-    isInferencing = false;
-  }
+    const { x, y, w, h } = coords;
+    const color = det.color || '#10b981';
+
+    // Draw box outline
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(3, Math.round(canvas.width / 220));
+    ctx.strokeRect(x, y, w, h);
+
+    // Semi-transparent fill
+    ctx.fillStyle = color + '22';
+    ctx.fillRect(x, y, w, h);
+
+    // Label tag
+    const label = `${det.className} ${det.confidencePercent}%`;
+    const fontSize = Math.max(13, Math.round(canvas.width / 42));
+    ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+    const textMetrics = ctx.measureText(label);
+    const textWidth = textMetrics.width;
+    const textHeight = fontSize * 1.35;
+
+    ctx.fillStyle = color;
+    const labelY = y - textHeight > 0 ? y - textHeight : y;
+    ctx.fillRect(x, labelY, textWidth + 12, textHeight);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, x + 6, labelY + fontSize);
+  });
 }
 
 async function captureAndSave() {
@@ -498,42 +465,71 @@ async function captureAndSave() {
 
   isCapturing.value = true;
   try {
-    const offscreen = document.createElement('canvas');
-    offscreen.width = video.videoWidth || 640;
-    offscreen.height = video.videoHeight || 480;
-    const offCtx = offscreen.getContext('2d');
-    offCtx.drawImage(video, 0, 0);
-    const frameBase64 = offscreen.toDataURL('image/jpeg', 0.85);
+    const captureCanvas = document.createElement('canvas');
+    captureCanvas.width = video.videoWidth || 640;
+    captureCanvas.height = video.videoHeight || 480;
+    const ctx = captureCanvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
 
-    const response = await apiService.predictWebcam(frameBase64, true);
-    if (response.success && response.data) {
-      const primary = response.data.primaryResult;
-      lastCaptured.value = {
-        className: primary ? primary.className : 'Không phát hiện rác',
-        confidencePercent: primary ? primary.confidencePercent : 0,
-        inferenceTime: response.data.inferenceTime || 0,
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      };
-    }
+    const frameBase64 = captureCanvas.toDataURL('image/jpeg', 0.85);
+
+    // Perform full-resolution client detection on the captured snapshot
+    const result = await yoloWebEngine.detect(captureCanvas, CONF_THRESHOLD, IOU_THRESHOLD);
+    const primary = result.primaryResult;
+
+    // Save to History backend API
+    await apiService.saveWebcamHistory({
+      image: frameBase64,
+      method: 'webcam',
+      primaryResult: primary,
+      totalObjects: result.totalObjects,
+      inferenceTime: result.inferenceTime,
+      detections: result.detections
+    });
+
+    lastCaptured.value = {
+      className: primary ? primary.className : 'Không phát hiện rác',
+      confidencePercent: primary ? primary.confidencePercent : 0,
+      inferenceTime: result.inferenceTime,
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    };
   } catch (err) {
-    console.error('Lỗi khi chụp:', err);
-    alert(err.message || 'Không thể lưu ảnh chụp.');
+    console.error('[WebcamClassifier] Lỗi lưu ảnh lịch sử:', err);
+    alert('Không thể lưu ảnh lịch sử: ' + (err.message || 'Lỗi kết nối'));
   } finally {
     isCapturing.value = false;
   }
 }
 
-onMounted(() => {
-  // Ready
+onMounted(async () => {
+  await initModel();
+  await checkCameras();
+
+  if (videoElement.value) {
+    resizeObserver = new ResizeObserver(() => {
+      syncCanvasSize();
+      renderOverlayBoxes(activeDetections.value);
+    });
+    resizeObserver.observe(videoElement.value);
+  }
 });
 
 onUnmounted(() => {
   stopCamera();
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+  }
 });
 </script>
 
 <style scoped>
-.max-w-sm {
-  max-width: 360px;
+.video-container {
+  background-color: #111827;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.pointer-events-none {
+  pointer-events: none;
 }
 </style>

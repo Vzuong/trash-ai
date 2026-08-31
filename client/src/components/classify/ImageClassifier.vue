@@ -263,25 +263,47 @@ function drawOriginalImage(imgSrc) {
   img.src = imgSrc;
 }
 
+import yoloWebEngine, { CONF_THRESHOLD, IOU_THRESHOLD } from '../../services/yoloWebEngine';
+
 async function classifyImage() {
-  if (!selectedFile.value) return;
+  if (!selectedImage.value) return;
   isLoading.value = true;
 
   try {
-    const formData = new FormData();
-    formData.append('image', selectedFile.value);
+    const img = new Image();
+    img.src = selectedImage.value;
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
 
-    const response = await apiService.predictImage(formData);
-    if (response.success) {
-      result.value = response.data;
-      hasResult.value = true;
-      nextTick(() => {
-        drawDetectionOverlay(selectedImage.value, response.data.detections);
-      });
-    }
+    // Run 100% Client-side ONNX Web AI inference
+    await yoloWebEngine.loadModel('/models/best.onnx');
+    const detectionResult = await yoloWebEngine.detect(img, CONF_THRESHOLD, IOU_THRESHOLD);
+
+    result.value = {
+      ...detectionResult,
+      imageUrl: selectedImage.value,
+      primaryResult: detectionResult.primaryResult
+    };
+    hasResult.value = true;
+
+    // Optionally save to history database asynchronously
+    apiService.saveWebcamHistory({
+      image: selectedImage.value,
+      method: 'image',
+      primaryResult: detectionResult.primaryResult,
+      totalObjects: detectionResult.totalObjects,
+      inferenceTime: detectionResult.inferenceTime,
+      detections: detectionResult.detections
+    }).catch(e => console.warn('Không thể lưu lịch sử ảnh:', e));
+
+    nextTick(() => {
+      drawDetectionOverlay(selectedImage.value, detectionResult.detections);
+    });
   } catch (error) {
     console.error('Lỗi phân loại ảnh:', error);
-    alert(error.message || 'Không thể kết nối máy chủ phân loại.');
+    alert(error.message || 'Không thể thực hiện phân loại ảnh.');
   } finally {
     isLoading.value = false;
   }

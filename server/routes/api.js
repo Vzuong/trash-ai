@@ -43,6 +43,7 @@ router.post('/predict/webcam', detectionController.predictWebcamFrame);
 
 // History Routes
 router.get('/history', historyController.getHistory);
+router.post('/history', historyController.createHistory);
 router.get('/history/:id', historyController.getHistoryById);
 router.delete('/history/:id', historyController.deleteHistory);
 

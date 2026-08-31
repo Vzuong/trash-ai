@@ -20,7 +20,7 @@ exports.predictImage = async (req, res) => {
     const file = req.file;
     const imageUrl = `/uploads/${file.filename}`;
 
-    // Perform AI prediction using real YOLO11
+    // Perform AI prediction using real YOLO service
     const predictionResult = await realYoloService.predict({
       filename: file.filename,
       originalname: file.originalname,
@@ -36,13 +36,13 @@ exports.predictImage = async (req, res) => {
       method: 'image',
       imageUrl,
       imageName: file.originalname || file.filename,
-      primaryClass: primary ? primary.className : 'Chưa xác định',
-      classCode: primary ? primary.classCode : 'other',
-      category: primary ? primary.category : 'Rác thải',
+      primaryClass: primary ? primary.className : 'Không phát hiện rác',
+      classCode: primary ? primary.classCode : 'none',
+      category: primary ? primary.category : 'Không xác định',
       confidence: primary ? primary.confidence : 0,
-      totalObjects: predictionResult.totalObjects,
-      inferenceTime: predictionResult.inferenceTime,
-      detections: predictionResult.detections
+      totalObjects: predictionResult.totalObjects || 0,
+      inferenceTime: predictionResult.inferenceTime || 0,
+      detections: predictionResult.detections || []
     });
 
     return res.status(200).json({
@@ -55,10 +55,10 @@ exports.predictImage = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('[DetectionController] predictImage error:', error);
+    console.error('[DetectionController] predictImage error:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Đã xảy ra lỗi trong quá trình phân loại ảnh.',
+      message: 'Đã xảy ra lỗi trong quá trình phân loại ảnh từ mô hình AI.',
       error: error.message
     });
   }
@@ -78,7 +78,7 @@ exports.predictWebcamFrame = async (req, res) => {
       });
     }
 
-    // Perform realtime AI prediction using real YOLO11
+    // Perform realtime AI prediction using real YOLO service
     const predictionResult = await realYoloService.predictFrame(frame);
 
     let imageUrl = '';
@@ -98,13 +98,13 @@ exports.predictWebcamFrame = async (req, res) => {
         method: 'webcam',
         imageUrl,
         imageName: filename,
-        primaryClass: primary ? primary.className : 'Rác nhựa',
-        classCode: primary ? primary.classCode : 'plastic',
-        category: primary ? primary.category : 'Rác tái chế',
-        confidence: primary ? primary.confidence : 0.9,
-        totalObjects: predictionResult.totalObjects,
-        inferenceTime: predictionResult.inferenceTime,
-        detections: predictionResult.detections
+        primaryClass: primary ? primary.className : 'Không phát hiện rác',
+        classCode: primary ? primary.classCode : 'none',
+        category: primary ? primary.category : 'Không xác định',
+        confidence: primary ? primary.confidence : 0,
+        totalObjects: predictionResult.totalObjects || 0,
+        inferenceTime: predictionResult.inferenceTime || 0,
+        detections: predictionResult.detections || []
       });
       historyId = historyEntry.id;
     }
@@ -118,10 +118,10 @@ exports.predictWebcamFrame = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('[DetectionController] predictWebcamFrame error:', error);
+    console.error('[DetectionController] predictWebcamFrame error:', error.message);
     return res.status(500).json({
       success: false,
-      message: 'Đã xảy ra lỗi trong quá trình nhận diện webcam.',
+      message: 'Đã xảy ra lỗi trong quá trình nhận diện webcam từ mô hình AI.',
       error: error.message
     });
   }

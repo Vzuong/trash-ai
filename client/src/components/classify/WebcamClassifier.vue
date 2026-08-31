@@ -249,6 +249,11 @@ function calculateIoU(b1, b2) {
 }
 
 function updateTrackedDetections(rawDetections) {
+  if (!rawDetections || rawDetections.length === 0) {
+    trackedBoxes = [];
+    return;
+  }
+
   const matched = new Set();
   const WINDOW_SIZE = 5;
 
@@ -290,7 +295,7 @@ function updateTrackedDetections(rawDetections) {
       bestMatch.targetConf = det.confidencePercent;
     } else {
       const newBox = {
-        id: Math.random().toString(36).substring(2, 9),
+        id: `box_${Date.now()}_${Math.floor(Math.random()*1000)}`,
         className: det.className,
         color: det.color,
         currentBbox: { ...rawBox },
@@ -313,12 +318,14 @@ function updateTrackedDetections(rawDetections) {
   trackedBoxes.forEach((t) => {
     if (!matched.has(t)) t.missCount++;
   });
-  trackedBoxes = trackedBoxes.filter((t) => t.missCount <= 3);
+  trackedBoxes = trackedBoxes.filter((t) => t.missCount <= 1);
 }
 
 function renderSmoothBoxes(canvas) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (trackedBoxes.length === 0) return;
 
   const cw = canvas.width;
   const ch = canvas.height;
@@ -413,7 +420,7 @@ function togglePause() {
 
 function startDetectionLoop() {
   let lastInferenceTimestamp = 0;
-  const INFERENCE_INTERVAL = 40; // ~25 FPS inference rate
+  const INFERENCE_INTERVAL = 80; // ~12-15 FPS inference rate
 
   const loop = async (timestamp) => {
     if (!isStreaming.value || isPaused.value) return;
@@ -457,15 +464,13 @@ async function processFrameInference() {
   try {
     const vWidth = video.videoWidth || 640;
     const vHeight = video.videoHeight || 480;
-    const targetW = 320;
-    const targetH = Math.round((vHeight / vWidth) * 320);
 
     const offscreen = document.createElement('canvas');
-    offscreen.width = targetW;
-    offscreen.height = targetH;
+    offscreen.width = vWidth;
+    offscreen.height = vHeight;
     const offCtx = offscreen.getContext('2d');
-    offCtx.drawImage(video, 0, 0, targetW, targetH);
-    const frameBase64 = offscreen.toDataURL('image/jpeg', 0.55);
+    offCtx.drawImage(video, 0, 0, vWidth, vHeight);
+    const frameBase64 = offscreen.toDataURL('image/jpeg', 0.80);
 
     const response = await apiService.predictWebcam(frameBase64, false);
     if (response.success && response.data) {
@@ -473,9 +478,15 @@ async function processFrameInference() {
       activeDetections.value = response.data.detections || [];
       detectedCount.value = response.data.totalObjects || 0;
       updateTrackedDetections(activeDetections.value);
+    } else {
+      activeDetections.value = [];
+      detectedCount.value = 0;
+      trackedBoxes = [];
     }
   } catch (err) {
-    // Silent fail
+    activeDetections.value = [];
+    detectedCount.value = 0;
+    trackedBoxes = [];
   } finally {
     isInferencing = false;
   }
@@ -498,9 +509,9 @@ async function captureAndSave() {
     if (response.success && response.data) {
       const primary = response.data.primaryResult;
       lastCaptured.value = {
-        className: primary?.className || 'Rác nhựa',
-        confidencePercent: primary?.confidencePercent || 95,
-        inferenceTime: response.data.inferenceTime || 20,
+        className: primary ? primary.className : 'Không phát hiện rác',
+        confidencePercent: primary ? primary.confidencePercent : 0,
+        inferenceTime: response.data.inferenceTime || 0,
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
       };
     }

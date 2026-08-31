@@ -1,5 +1,4 @@
 const AIService = require('./aiService');
-const mockAIService = require('./mockAIService');
 
 const PYTHON_YOLO_URL = process.env.YOLO_SERVICE_URL || 'http://127.0.0.1:5001';
 
@@ -23,17 +22,18 @@ class RealYOLOService extends AIService {
       });
 
       if (!response.ok) {
-        throw new Error(`Python service responded with status ${response.status}`);
+        const errorBody = await response.text();
+        throw new Error(`Python AI service status ${response.status}: ${errorBody}`);
       }
 
       const result = await response.json();
       if (result.success) {
         return result;
       }
-      throw new Error(result.message || 'Lỗi từ YOLO service');
+      throw new Error(result.message || 'Lỗi xử lý từ mô hình AI');
     } catch (err) {
-      console.warn('[RealYOLOService] Python YOLO service not available or error, falling back to mock:', err.message);
-      return mockAIService.predict(imageInfo);
+      console.error('[AI ERROR] RealYOLOService predict failed:', err.message);
+      throw new Error(`AI inference failed: ${err.message}`);
     }
   }
 
@@ -51,16 +51,18 @@ class RealYOLOService extends AIService {
       });
 
       if (!response.ok) {
-        throw new Error(`Python service status ${response.status}`);
+        const errorBody = await response.text();
+        throw new Error(`Python AI service status ${response.status}: ${errorBody}`);
       }
 
       const result = await response.json();
       if (result.success) {
         return result;
       }
-      throw new Error(result.message || 'Lỗi frame YOLO');
+      throw new Error(result.message || 'Lỗi nhận diện frame từ AI');
     } catch (err) {
-      return mockAIService.predictFrame(base64Frame);
+      console.error('[AI ERROR] RealYOLOService predictFrame failed:', err.message);
+      throw new Error(`AI inference failed: ${err.message}`);
     }
   }
 
@@ -76,10 +78,29 @@ class RealYOLOService extends AIService {
       if (response.ok) {
         return await response.json();
       }
+      throw new Error(`Python service status ${response.status}`);
     } catch (err) {
-      console.warn('[RealYOLOService] Failed to fetch model info from Python service:', err.message);
+      console.error('[AI ERROR] Failed to fetch model info from Python service:', err.message);
+      return null;
     }
-    return null;
+  }
+
+  /**
+   * Check health of Python AI service
+   */
+  async getHealth() {
+    try {
+      const response = await fetch(`${this.pythonUrl}/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+      return { status: 'error', message: `Status code ${response.status}` };
+    } catch (err) {
+      return { status: 'error', message: err.message };
+    }
   }
 
   /**
@@ -96,7 +117,7 @@ class RealYOLOService extends AIService {
       }
       throw new Error(`Python service status ${response.status}`);
     } catch (err) {
-      console.error('[RealYOLOService] Failed to reload model:', err.message);
+      console.error('[AI ERROR] Failed to reload model:', err.message);
       throw err;
     }
   }

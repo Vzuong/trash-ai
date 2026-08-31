@@ -45,11 +45,16 @@ app.get('/best.onnx', (req, res) => {
 app.use('/api', apiRoutes);
 
 // Health Check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'online',
+app.get('/api/health', async (req, res) => {
+  const realYoloService = require('./services/realYoloService');
+  const aiHealth = await realYoloService.getHealth();
+  const isAiReady = aiHealth && aiHealth.status === 'ready';
+
+  res.status(isAiReady ? 200 : 503).json({
+    status: isAiReady ? 'online' : 'error',
     systemName: 'Hệ thống AI Phân Loại Rác',
     version: '2.0.0',
+    ai: aiHealth,
     timestamp: new Date().toISOString()
   });
 });

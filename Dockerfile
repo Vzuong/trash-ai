@@ -20,11 +20,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Ultra-Lightweight ONNX Runtime & Python Flask dependencies
-RUN pip install --no-cache-dir \
-    onnxruntime==1.19.2 \
-    flask==3.0.3 \
-    flask-cors==4.0.1 \
+# Install PyTorch CPU & Ultralytics AI Core
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir \
+    ultralytics \
+    onnxruntime \
+    flask \
+    flask-cors \
     pillow \
     opencv-python-headless \
     numpy
@@ -36,8 +38,8 @@ RUN npm install --production
 
 # Copy Application Source Code & Prebuilt Vue Frontend
 WORKDIR /app
-COPY best.onnx /app/best.onnx
 COPY best.pt /app/best.pt
+COPY best.onnx /app/best.onnx
 COPY server /app/server
 COPY client/dist /app/client/dist
 COPY start.sh /app/start.sh

@@ -3,11 +3,15 @@ import * as ort from 'onnxruntime-web';
 // Configure ONNX Runtime Web paths for WASM assets
 ort.env.wasm.wasmPaths = '/wasm/';
 
-// Configure thread count for WASM SIMD
+// Configure thread count for WASM SIMD (safe check for SharedArrayBuffer)
 try {
-  ort.env.wasm.numThreads = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
+  if (typeof SharedArrayBuffer === 'undefined' || !(typeof window !== 'undefined' && window.crossOriginIsolated)) {
+    ort.env.wasm.numThreads = 1;
+  } else {
+    ort.env.wasm.numThreads = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
+  }
 } catch (e) {
-  // Ignore
+  ort.env.wasm.numThreads = 1;
 }
 
 export const CONF_THRESHOLD = 0.35;

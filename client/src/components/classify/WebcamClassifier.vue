@@ -32,9 +32,20 @@
               class="position-absolute top-0 start-0 w-100 h-100 pointer-events-none"
             ></canvas>
 
+            <!-- Loading Model Overlay -->
+            <div
+              v-if="clientModelLoading"
+              class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center text-white bg-dark bg-opacity-75"
+              style="z-index: 5;"
+            >
+              <div class="spinner-border text-success mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+              <h6 class="fw-bold text-white mb-1">Đang khởi tạo mô hình AI vào trình duyệt...</h6>
+              <p class="text-white-50 small mb-0">Quá trình tải chỉ diễn ra 1 lần duy nhất trong vài giây.</p>
+            </div>
+
             <!-- Video Inactive Placeholder -->
             <div
-              v-if="!isStreaming"
+              v-if="!isStreaming && !clientModelLoading"
               class="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center text-white bg-dark bg-opacity-75"
             >
               <i class="bi bi-camera-video display-1 text-muted mb-3"></i>

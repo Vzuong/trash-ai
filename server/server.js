@@ -18,6 +18,11 @@ if (!fs.existsSync(config.dataDir)) {
 
 // Middlewares
 app.use(cors());
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+  next();
+});
 app.use(morgan('dev'));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
@@ -39,6 +44,8 @@ if (wasmDir) {
       res.setHeader('Access-Control-Allow-Origin', '*');
       if (filePath.endsWith('.wasm')) {
         res.setHeader('Content-Type', 'application/wasm');
+      } else if (filePath.endsWith('.mjs') || filePath.endsWith('.js')) {
+        res.setHeader('Content-Type', 'text/javascript');
       }
     }
   }));

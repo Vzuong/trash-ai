@@ -1,4 +1,4 @@
-import * as ort from 'onnxruntime-web';
+import * as ort from 'onnxruntime-web/all';
 
 // Configure ONNX Runtime Web paths for WASM assets
 ort.env.wasm.wasmPaths = '/wasm/';
@@ -14,7 +14,7 @@ try {
   ort.env.wasm.numThreads = 1;
 }
 
-export const CONF_THRESHOLD = 0.35;
+export const CONF_THRESHOLD = 0.25;
 export const IOU_THRESHOLD = 0.45;
 export const IMAGE_SIZE = 640;
 
@@ -121,42 +121,55 @@ class YOLOWebEngine {
     this.loadError = null;
     console.log('[YOLOWebEngine] Bắt đầu tải mô hình AI vào trình duyệt:', modelUrl);
 
-    // Try WebGPU first with high-performance hardware acceleration, then fallback to WASM
-    const providersToTry = [
-      { 
-        name: 'webgpu', 
-        label: 'WebGPU (Hardware Accelerated)',
-        options: {
-          executionProviders: ['webgpu'],
-          graphOptimizationLevel: 'all'
-        }
-      },
-      { 
-        name: 'wasm', 
-        label: 'WASM SIMD (CPU)',
-        options: {
-          executionProviders: ['wasm'],
-          graphOptimizationLevel: 'all'
-        }
+    try {
+      // Tải buffer một lần vào RAM để không phải fetch lại nếu đổi provider
+      const res = await fetch(modelUrl);
+      if (!res.ok) {
+        throw new Error(`Không thể tải file mô hình: HTTP ${res.status}`);
       }
-    ];
+      const modelBuffer = await res.arrayBuffer();
+      console.log(`[YOLOWebEngine] Đã nạp ${modelBuffer.byteLength} bytes vào RAM. Đang khởi tạo session AI...`);
 
-    for (const provider of providersToTry) {
-      try {
-        console.log(`[YOLOWebEngine] Đang khởi tạo session với backend: ${provider.name}...`);
-        this.session = await ort.InferenceSession.create(modelUrl, provider.options);
-        this.activeProvider = provider.label;
-        this.status = 'ready';
-        console.log(`✅ [YOLOWebEngine] Mô hình đã sẵn sàng! Backend: ${this.activeProvider}`);
-        return this.session;
-      } catch (err) {
-        console.warn(`[YOLOWebEngine] Backend ${provider.name} không khả dụng:`, err.message);
+      // Ưu tiên WebGPU tăng tốc phần cứng, nếu không hỗ trợ thì tự động dùng WASM SIMD
+      const providersToTry = [
+        { 
+          name: 'webgpu', 
+          label: 'WebGPU (Hardware Accelerated)',
+          options: {
+            executionProviders: ['webgpu'],
+            graphOptimizationLevel: 'all'
+          }
+        },
+        { 
+          name: 'wasm', 
+          label: 'WASM SIMD (CPU)',
+          options: {
+            executionProviders: ['wasm'],
+            graphOptimizationLevel: 'all'
+          }
+        }
+      ];
+
+      for (const provider of providersToTry) {
+        try {
+          console.log(`[YOLOWebEngine] Thử khởi tạo session với backend: ${provider.name}...`);
+          this.session = await ort.InferenceSession.create(modelBuffer, provider.options);
+          this.activeProvider = provider.label;
+          this.status = 'ready';
+          console.log(`✅ [YOLOWebEngine] Mô hình đã sẵn sàng! Backend: ${this.activeProvider}`);
+          return this.session;
+        } catch (err) {
+          console.warn(`[YOLOWebEngine] Backend ${provider.name} không khả dụng:`, err.message);
+        }
       }
+
+      throw new Error('Cả WebGPU và WASM đều không thể khởi tạo session AI.');
+    } catch (outerErr) {
+      this.status = 'error';
+      this.loadError = outerErr.message;
+      console.error('[YOLOWebEngine] Lỗi nạp mô hình:', outerErr);
+      throw outerErr;
     }
-
-    this.status = 'error';
-    this.loadError = 'Không thể tải mô hình AI trên trình duyệt. Vui lòng kiểm tra hỗ trợ WebAssembly/WebGPU.';
-    throw new Error(this.loadError);
   }
 
   /**

@@ -141,56 +141,20 @@ def load_ai_model():
         except Exception as e:
             print(f" [AI WARN] Could not load GPU PyTorch: {e}")
 
-    # 2. On CPU (Cloud / Render): Use ONNX Runtime (Ultra-lightweight ~60MB RAM, fast)
-    try:
-        import onnxruntime as ort
-        candidate_onnx = [ONNX_PATH, os.path.join(BASE_DIR, "weights", "best.onnx"), "best.onnx"]
-        resolved_onnx = next((p for p in candidate_onnx if os.path.isfile(p)), None)
-
-        if resolved_onnx:
-            opts = ort.SessionOptions()
-            opts.intra_op_num_threads = 1
-            opts.inter_op_num_threads = 1
-            opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-            onnx_session = ort.InferenceSession(resolved_onnx, sess_options=opts, providers=['CPUExecutionProvider'])
-            active_backend = "onnx"
-            
-            model_metadata = {
-                'backend': 'ONNX Runtime (Fast CPU)',
-                'weights_file': os.path.basename(resolved_onnx),
-                'weights_path': resolved_onnx,
-                'device': 'CPU',
-                'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
-            }
-            print(f" [AI] Model loaded: {os.path.basename(resolved_onnx)}")
-            print(f" [AI] Backend: ONNX Runtime (Memory safe for Render)")
-            print(f" [AI] Device: CPU")
-            print("=" * 60 + "\n")
-            return
-    except Exception as e:
-        print(f" [AI WARN] Could not load via ONNX Runtime: {e}")
-
-    # 3. Fallback to PyTorch CPU if ONNX is missing
-    try:
-        from ultralytics import YOLO
-        candidate_pt = [PT_PATH, os.path.join(BASE_DIR, "weights", "best.pt"), "best.pt"]
-        resolved_pt = next((p for p in candidate_pt if os.path.isfile(p)), None)
-        if resolved_pt:
-            model_instance = YOLO(resolved_pt)
-            active_backend = "ultralytics"
-            model_metadata = {
-                'backend': 'Ultralytics PyTorch (CPU)',
-                'weights_file': os.path.basename(resolved_pt),
-                'weights_path': resolved_pt,
-                'device': 'CPU',
-                'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
-            }
-            print(f" [AI] Model loaded: {os.path.basename(resolved_pt)}")
-            print(f" [AI] Backend: Ultralytics PyTorch CPU")
-            print("=" * 60 + "\n")
-            return
-    except Exception as e:
-        print(f" [AI WARN] Could not load PyTorch CPU: {e}")
+    # 2. On Cloud / Render without GPU: DO NOT run on CPU!
+    # All inference is offloaded 100% to Client WebGPU.
+    active_backend = "client_webgpu_only"
+    model_metadata = {
+        'backend': 'Client-Side WebGPU Engine',
+        'weights_file': 'best.onnx (In-Browser)',
+        'weights_path': 'client/public/models/best.onnx',
+        'device': 'Client Device GPU',
+        'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    print(" [AI INFO] No CUDA GPU found on server. Server CPU inference is completely DISABLED.")
+    print(" [AI INFO] AI runs 100% on Client WebGPU (Zero server CPU load).")
+    print("=" * 60 + "\n")
+    return
 
     # 4. Model load failure
     active_backend = "error"
@@ -376,7 +340,7 @@ def run_onnx_inference(img_bgr, orig_w, orig_h, conf_thresh=CONF_THRESHOLD, iou_
 
 @app.route('/health', methods=['GET'])
 def health():
-    is_ready = active_backend in ["ultralytics", "onnx"]
+    is_ready = active_backend in ["ultralytics", "onnx", "client_webgpu_only"]
     return jsonify({
         'status': 'ready' if is_ready else 'error',
         'backend': model_metadata.get('backend', 'none'),
@@ -387,7 +351,7 @@ def health():
 
 @app.route('/model_info', methods=['GET'])
 def model_info():
-    is_ready = active_backend in ["ultralytics", "onnx"]
+    is_ready = active_backend in ["ultralytics", "onnx", "client_webgpu_only"]
     return jsonify({
         'success': is_ready,
         'backend': model_metadata.get('backend', 'none'),
@@ -401,7 +365,7 @@ def model_info():
 def reload_model():
     try:
         load_ai_model()
-        is_ready = active_backend in ["ultralytics", "onnx"]
+        is_ready = active_backend in ["ultralytics", "onnx", "client_webgpu_only"]
         if is_ready:
             return jsonify({
                 'success': True,
@@ -414,6 +378,12 @@ def reload_model():
 
 @app.route('/predict_image', methods=['POST'])
 def predict_image():
+    if active_backend == "client_webgpu_only":
+        return jsonify({
+            'success': False,
+            'message': 'Server Cloud không kích hoạt CPU inference. Nhận diện AI được thực hiện bằng WebGPU trên thiết bị của bạn để đạt tốc độ cao nhất (0% độ trễ).'
+        }), 400
+
     if active_backend not in ["ultralytics", "onnx"]:
         return jsonify({'success': False, 'message': 'AI Model is not ready or loaded'}), 503
 
@@ -475,6 +445,12 @@ def predict_image():
 
 @app.route('/predict_frame', methods=['POST'])
 def predict_frame():
+    if active_backend == "client_webgpu_only":
+        return jsonify({
+            'success': False,
+            'message': 'Server Cloud không kích hoạt CPU inference. Nhận diện AI được thực hiện bằng WebGPU trên thiết bị của bạn để đạt tốc độ cao nhất (0% độ trễ).'
+        }), 400
+
     if active_backend not in ["ultralytics", "onnx"]:
         return jsonify({'success': False, 'message': 'AI Model is not ready or loaded'}), 503
 

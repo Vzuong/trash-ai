@@ -195,6 +195,7 @@
 
 <script setup>
 import { ref, nextTick } from 'vue';
+import yoloWebEngine, { CONF_THRESHOLD, IOU_THRESHOLD } from '../../services/yoloWebEngine';
 import apiService from '../../services/api';
 
 const fileInput = ref(null);
@@ -268,31 +269,49 @@ async function classifyImage() {
   isLoading.value = true;
 
   try {
-    let response;
-    if (selectedFile.value) {
-      const formData = new FormData();
-      formData.append('image', selectedFile.value);
-      response = await apiService.predictImage(formData);
-    } else {
-      // Fallback if image is base64 string
-      response = await apiService.predictWebcam(selectedImage.value, true);
+    // 1. Tải mô hình WebGPU vào trình duyệt (nếu chưa nạp)
+    if (yoloWebEngine.status !== 'ready') {
+      await yoloWebEngine.loadModel('/models/best.onnx');
     }
 
-    const data = response?.data || response;
-    if (data) {
-      result.value = {
-        ...data,
-        imageUrl: data.imageUrl || selectedImage.value
-      };
-      hasResult.value = true;
+    // 2. Nạp ảnh vào HTML Image
+    const img = new Image();
+    img.src = selectedImage.value;
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
 
-      nextTick(() => {
-        drawDetectionOverlay(selectedImage.value, data.detections || []);
-      });
-    }
+    // 3. Nhận diện trực tiếp 100% bằng WebGPU của máy người dùng (khoảng ~25ms)
+    const detectResult = await yoloWebEngine.detect(img, CONF_THRESHOLD, IOU_THRESHOLD);
+
+    result.value = {
+      success: true,
+      primaryResult: detectResult.primaryResult,
+      detections: detectResult.detections,
+      totalObjects: detectResult.totalObjects,
+      inferenceTime: detectResult.inferenceTime,
+      imageUrl: selectedImage.value
+    };
+    hasResult.value = true;
+
+    nextTick(() => {
+      drawDetectionOverlay(selectedImage.value, detectResult.detections || []);
+    });
+
+    // 4. Lưu kết quả và ảnh vào lịch sử hệ thống (không dùng CPU để tính toán)
+    apiService.saveWebcamHistory({
+      image: selectedImage.value,
+      method: 'upload',
+      primaryResult: detectResult.primaryResult,
+      totalObjects: detectResult.totalObjects,
+      inferenceTime: detectResult.inferenceTime,
+      detections: detectResult.detections
+    }).catch((err) => console.warn('Lưu lịch sử ảnh upload:', err));
+
   } catch (error) {
     console.error('Lỗi phân loại ảnh:', error);
-    alert(error.message || 'Không thể thực hiện phân loại ảnh từ GPU Server.');
+    alert('Không thể thực hiện phân loại ảnh: ' + (error.message || 'Lỗi không xác định'));
   } finally {
     isLoading.value = false;
   }

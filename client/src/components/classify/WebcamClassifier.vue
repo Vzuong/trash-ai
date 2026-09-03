@@ -20,7 +20,9 @@
             <i class="bi bi-cpu-fill text-success fs-5"></i>
             Bộ xử lý AI:
           </span>
-          <div class="btn-group p-1 bg-light rounded-pill border" role="group">
+
+          <!-- Nếu chạy Localhost trên máy bạn: Cho phép chọn Local GPU NVIDIA để thuyết trình -->
+          <div v-if="isRunningLocally" class="btn-group p-1 bg-light rounded-pill border" role="group">
             <button
               type="button"
               class="btn btn-sm rounded-pill px-3 py-1 fw-semibold transition-all"
@@ -35,10 +37,17 @@
               class="btn btn-sm rounded-pill px-3 py-1 fw-semibold transition-all"
               :class="engineMode === 'client_webgpu' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'"
               @click="setEngineMode('client_webgpu')"
-              title="Chạy bằng card đồ họa / chip của thiết bị người xem (Khuyên dùng khi xem qua link Render)"
+              title="Chạy bằng card đồ họa / chip của thiết bị người xem (WebGPU)"
             >
-              <i class="bi bi-laptop me-1"></i> WebGPU Trình Duyệt (Người xem)
+              <i class="bi bi-laptop me-1"></i> WebGPU Trình Duyệt
             </button>
+          </div>
+
+          <!-- Nếu chạy trên Render Cloud: Cố định 100% WebGPU phần cứng trên máy khách (0% dính dáng đến CPU Render) -->
+          <div v-else class="d-flex align-items-center">
+            <span class="badge bg-primary text-white px-3 py-2 rounded-pill shadow-sm">
+              <i class="bi bi-lightning-charge-fill text-warning me-1"></i> WebGPU Phần Cứng (Chạy trên máy người xem)
+            </span>
           </div>
         </div>
 
@@ -47,7 +56,7 @@
             <i class="bi bi-check-circle-fill me-1"></i> Thuyết trình: Khử trễ, GPU máy bạn xử lý (~20ms)
           </span>
           <span v-else class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
-            <i class="bi bi-info-circle-fill me-1"></i> Render Link: 0% tải server, thiết bị người xem tự xử lý
+            <i class="bi bi-shield-check me-1"></i> 100% WebGPU Client: 0% dính CPU Render, không tốn tài nguyên máy chủ
           </span>
         </div>
       </div>

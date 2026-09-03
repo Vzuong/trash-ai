@@ -10,7 +10,7 @@ ort.env.wasm.wasmPaths = {
 
 // Also support CDN fallback for WASM if local files are missing
 try {
-  ort.env.wasm.numThreads = Math.min(2, navigator.hardwareConcurrency || 1);
+  ort.env.wasm.numThreads = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
 } catch (e) {
   // Ignore
 }
@@ -122,21 +122,36 @@ class YOLOWebEngine {
     this.loadError = null;
     console.log('[YOLOWebEngine] Bắt đầu tải mô hình AI vào trình duyệt:', modelUrl);
 
-    // Try WebGPU first, then fallback to WASM (CPU)
+    // Try WebGPU first with high-performance hardware acceleration, then fallback to WASM
     const providersToTry = [
-      { name: 'webgpu', label: 'WebGPU (Hardware Accelerated)' },
-      { name: 'wasm', label: 'WASM (CPU)' }
+      { 
+        name: 'webgpu', 
+        label: 'WebGPU (Hardware Accelerated)',
+        options: {
+          executionProviders: [
+            {
+              name: 'webgpu',
+              deviceType: 'default',
+              powerPreference: 'high-performance'
+            }
+          ],
+          graphOptimizationLevel: 'all'
+        }
+      },
+      { 
+        name: 'wasm', 
+        label: 'WASM SIMD (CPU)',
+        options: {
+          executionProviders: ['wasm'],
+          graphOptimizationLevel: 'all'
+        }
+      }
     ];
 
     for (const provider of providersToTry) {
       try {
         console.log(`[YOLOWebEngine] Đang khởi tạo session với backend: ${provider.name}...`);
-        const sessionOptions = {
-          executionProviders: [provider.name],
-          graphOptimizationLevel: 'all'
-        };
-
-        this.session = await ort.InferenceSession.create(modelUrl, sessionOptions);
+        this.session = await ort.InferenceSession.create(modelUrl, provider.options);
         this.activeProvider = provider.label;
         this.status = 'ready';
         console.log(`✅ [YOLOWebEngine] Mô hình đã sẵn sàng! Backend: ${this.activeProvider}`);

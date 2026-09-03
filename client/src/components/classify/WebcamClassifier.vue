@@ -1,22 +1,64 @@
 <template>
   <div class="webcam-classifier">
-    <!-- Model Loading Banner / Status -->
-    <div v-if="modelStatus === 'loading'" class="alert alert-info d-flex align-items-center mb-3 shadow-sm border-0">
-      <div class="spinner-border spinner-border-sm text-info me-3" role="status"></div>
+    <!-- AI Backend Status Banner (Nếu cần) -->
+    <div v-if="modelStatus === 'error'" class="alert alert-danger d-flex align-items-center mb-3 shadow-sm border-0">
+      <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
       <div>
-        <strong>Đang tải mô hình AI vào trình duyệt...</strong>
-        <div class="small text-muted">Mô hình ONNX đang được nạp trực tiếp vào RAM thiết bị của bạn để nhận diện thời gian thực (không tốn dung lượng mạng).</div>
+        <strong>Không thể kết nối dịch vụ AI GPU:</strong>
+        <div class="small">{{ loadErrorMessage || 'Vui lòng kiểm tra server backend và tiến trình AI.' }}</div>
+        <button class="btn btn-sm btn-outline-danger mt-2" @click="retryLoadModel">
+          <i class="bi bi-arrow-clockwise me-1"></i> Thử kết nối lại
+        </button>
       </div>
     </div>
 
-    <div v-else-if="modelStatus === 'error'" class="alert alert-danger d-flex align-items-center mb-3 shadow-sm border-0">
-      <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
-      <div>
-        <strong>Lỗi nạp mô hình AI:</strong>
-        <div class="small">{{ loadErrorMessage || 'Không thể khởi tạo ONNX Runtime Web. Vui lòng thử lại.' }}</div>
-        <button class="btn btn-sm btn-outline-danger mt-2" @click="retryLoadModel">
-          <i class="bi bi-arrow-clockwise me-1"></i> Tải lại mô hình
-        </button>
+    <!-- AI Engine Mode Switcher Bar -->
+    <div class="card border-0 shadow-sm p-3 mb-3 rounded-4 bg-white">
+      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-bold text-dark small d-flex align-items-center gap-1">
+            <i class="bi bi-cpu-fill text-success fs-5"></i>
+            Bộ xử lý AI:
+          </span>
+          <div class="btn-group p-1 bg-light rounded-pill border" role="group">
+            <button
+              type="button"
+              class="btn btn-sm rounded-pill px-3 py-1 fw-semibold transition-all"
+              :class="engineMode === 'server_gpu' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted border-0'"
+              @click="setEngineMode('server_gpu')"
+              title="Chạy trên GPU NVIDIA của máy tính (Khuyên dùng khi thuyết trình trên máy)"
+            >
+              <i class="bi bi-lightning-charge-fill text-warning me-1"></i> GPU Máy Tính (Thuyết trình)
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm rounded-pill px-3 py-1 fw-semibold transition-all"
+              :class="engineMode === 'client_webgpu' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'"
+              @click="setEngineMode('client_webgpu')"
+              title="Chạy bằng card đồ họa / chip của thiết bị người xem (Khuyên dùng khi xem qua link Render)"
+            >
+              <i class="bi bi-laptop me-1"></i> WebGPU Trình Duyệt (Người xem)
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <span v-if="engineMode === 'server_gpu'" class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+            <i class="bi bi-check-circle-fill me-1"></i> Thuyết trình: Khử trễ, GPU máy bạn xử lý (~20ms)
+          </span>
+          <span v-else class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
+            <i class="bi bi-info-circle-fill me-1"></i> Render Link: 0% tải server, thiết bị người xem tự xử lý
+          </span>
+        </div>
+      </div>
+
+      <!-- WebGPU Loading alert if downloading model on client -->
+      <div v-if="engineMode === 'client_webgpu' && clientModelLoading" class="alert alert-info d-flex align-items-center mb-0 mt-3 shadow-none border">
+        <div class="spinner-border spinner-border-sm text-info me-3" role="status"></div>
+        <div class="small">
+          <strong>Đang kích hoạt WebGPU trên thiết bị của bạn...</strong>
+          <span class="text-muted ms-1">(Chỉ tải một lần duy nhất vào bộ nhớ thiết bị, không tốn tải máy chủ).</span>
+        </div>
       </div>
     </div>
 
@@ -79,8 +121,8 @@
 
             <!-- Engine Badge -->
             <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-secondary text-white small" title="Mô hình AI chạy 100% trong trình duyệt">
-                <i class="bi bi-cpu me-1"></i> {{ modelBackend || 'Client-Side AI' }}
+              <span class="badge bg-success text-white small" title="Mô hình AI chạy trực tiếp trên GPU Server">
+                <i class="bi bi-gpu-card me-1"></i> {{ modelBackend || 'NVIDIA GPU Server' }}
               </span>
               <span v-if="detectedCount > 0" class="badge bg-primary">
                 {{ detectedCount }} vật thể
@@ -238,8 +280,13 @@ import apiService from '../../services/api';
 const videoElement = ref(null);
 const overlayCanvas = ref(null);
 
-const modelStatus = ref('loading'); // 'loading' | 'ready' | 'error'
-const modelBackend = ref('');
+// Dual-Engine Mode: 'server_gpu' (Thuyết trình trên máy) | 'client_webgpu' (Người xem qua link Render)
+const engineMode = ref('server_gpu');
+const clientModelLoading = ref(false);
+const clientBackend = ref('WebGPU');
+
+const modelStatus = ref('ready'); // 'ready' | 'error'
+const modelBackend = ref('NVIDIA GPU');
 const loadErrorMessage = ref('');
 
 const isStreaming = ref(false);
@@ -261,17 +308,57 @@ let frameCount = 0;
 let isInferencing = false;
 let resizeObserver = null;
 
-async function initModel() {
-  modelStatus.value = 'loading';
-  try {
-    await yoloWebEngine.loadModel('/models/best.onnx');
-    modelStatus.value = 'ready';
-    modelBackend.value = yoloWebEngine.activeProvider;
-  } catch (err) {
-    console.error('[WebcamClassifier] Lỗi nạp mô hình ONNX Web:', err);
-    modelStatus.value = 'error';
-    loadErrorMessage.value = err.message || 'Không thể khởi tạo mô hình AI trên trình duyệt.';
+// Reusable offscreen canvas for high-speed lightweight frame capture (max 640px)
+let captureCanvas = null;
+let captureCtx = null;
+
+async function setEngineMode(mode) {
+  engineMode.value = mode;
+  if (mode === 'client_webgpu') {
+    if (yoloWebEngine.status !== 'ready') {
+      clientModelLoading.value = true;
+      try {
+        await yoloWebEngine.loadModel('/models/best.onnx');
+        clientBackend.value = yoloWebEngine.activeProvider || 'WebGPU';
+      } catch (e) {
+        console.warn('Lỗi kích hoạt WebGPU Client:', e);
+      } finally {
+        clientModelLoading.value = false;
+      }
+    } else {
+      clientBackend.value = yoloWebEngine.activeProvider || 'WebGPU';
+    }
   }
+}
+
+async function initModel() {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  let serverHasGPU = false;
+
+  try {
+    const healthRes = await apiService.checkHealth();
+    if (healthRes && healthRes.ai) {
+      const dev = (healthRes.ai.device || healthRes.ai.backend || '').toLowerCase();
+      if (dev.includes('cuda') || dev.includes('gpu') || dev.includes('nvidia') || dev.includes('1650') || dev.includes('rtx')) {
+        serverHasGPU = true;
+      }
+      modelBackend.value = healthRes.ai.device || 'NVIDIA GPU Server';
+    }
+  } catch (err) {
+    console.warn('[WebcamClassifier] Kiểm tra AI Health ban đầu:', err);
+  }
+
+  // Tự động nhận diện môi trường:
+  // - Nếu chạy trên localhost hoặc server có GPU NVIDIA -> ưu tiên Server GPU cho thuyết trình siêu mượt (~20ms)
+  // - Nếu chạy trên Render (cloud công khai không GPU) -> tự động kích hoạt WebGPU để người xem dùng GPU máy họ!
+  if (isLocalhost || serverHasGPU) {
+    engineMode.value = 'server_gpu';
+  } else {
+    engineMode.value = 'client_webgpu';
+    setEngineMode('client_webgpu');
+  }
+
+  modelStatus.value = 'ready';
 }
 
 function retryLoadModel() {
@@ -289,11 +376,6 @@ async function checkCameras() {
 }
 
 async function startCamera() {
-  if (modelStatus.value !== 'ready') {
-    alert('Mô hình AI đang được tải, vui lòng chờ trong giây lát...');
-    return;
-  }
-
   try {
     const constraints = {
       video: {
@@ -307,7 +389,7 @@ async function startCamera() {
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
     } catch (e) {
-      // Fallback to any camera
+      // Fallback to default video camera
       mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     }
 
@@ -342,6 +424,7 @@ function stopCamera() {
 
   isStreaming.value = false;
   isPaused.value = false;
+  isInferencing = false;
   activeDetections.value = [];
   detectedCount.value = 0;
   clearCanvas();
@@ -384,7 +467,7 @@ function startDetectionLoop() {
   const loop = async () => {
     if (!isStreaming.value || isPaused.value) return;
 
-    // FPS counter
+    // Smooth FPS Counter
     frameCount++;
     const now = performance.now();
     if (now - lastFpsTimestamp >= 1000) {
@@ -395,14 +478,61 @@ function startDetectionLoop() {
 
     const video = videoElement.value;
 
-    if (video && video.readyState >= 2 && !isInferencing && modelStatus.value === 'ready') {
+    // Draw active bounding boxes continuously at video screen refresh rate
+    renderOverlayBoxes(activeDetections.value);
+
+    // Request-gated inference
+    if (video && video.readyState >= 2 && !isInferencing) {
       isInferencing = true;
+      const t0 = performance.now();
+
       try {
-        const result = await yoloWebEngine.detect(video, CONF_THRESHOLD, IOU_THRESHOLD);
-        currentInferenceTime.value = result.inferenceTime;
-        activeDetections.value = result.detections;
-        detectedCount.value = result.totalObjects;
-        renderOverlayBoxes(result.detections);
+        if (engineMode.value === 'server_gpu') {
+          // --- CHẾ ĐỘ 1: SERVER GPU NVIDIA (Thuyết trình siêu mượt ~20ms) ---
+          const maxDim = 640;
+          const vW = video.videoWidth || 640;
+          const vH = video.videoHeight || 480;
+          const scale = Math.min(maxDim / vW, maxDim / vH, 1.0);
+          const capW = Math.round(vW * scale);
+          const capH = Math.round(vH * scale);
+
+          if (!captureCanvas) {
+            captureCanvas = document.createElement('canvas');
+          }
+          if (captureCanvas.width !== capW || captureCanvas.height !== capH) {
+            captureCanvas.width = capW;
+            captureCanvas.height = capH;
+            captureCtx = captureCanvas.getContext('2d', { willReadFrequently: true });
+          }
+
+          // Render vào buffer 640px
+          captureCtx.drawImage(video, 0, 0, capW, capH);
+          // Nén JPEG nhẹ ~25KB (encode trong ~3ms)
+          const frameBase64 = captureCanvas.toDataURL('image/jpeg', 0.65);
+
+          const res = await apiService.predictWebcam(frameBase64, false);
+          const data = res?.data || res;
+
+          if (data && data.success !== false) {
+            currentInferenceTime.value = data.inferenceTime || Math.round(performance.now() - t0);
+            activeDetections.value = data.detections || [];
+            detectedCount.value = data.totalObjects || 0;
+            if (data.model) {
+              modelBackend.value = data.model;
+            }
+          }
+        } else {
+          // --- CHẾ ĐỘ 2: CLIENT WEBGPU (Cho người khác xem qua Render link) ---
+          if (yoloWebEngine.status === 'ready') {
+            const result = await yoloWebEngine.detect(video, CONF_THRESHOLD, IOU_THRESHOLD);
+            currentInferenceTime.value = result.inferenceTime;
+            activeDetections.value = result.detections || [];
+            detectedCount.value = result.totalObjects || 0;
+            clientBackend.value = result.backend || clientBackend.value;
+          } else if (!clientModelLoading.value) {
+            setEngineMode('client_webgpu');
+          }
+        }
       } catch (err) {
         console.warn('[WebcamClassifier] Lỗi frame inference:', err);
       } finally {
@@ -465,36 +595,50 @@ async function captureAndSave() {
 
   isCapturing.value = true;
   try {
-    const captureCanvas = document.createElement('canvas');
-    captureCanvas.width = video.videoWidth || 640;
-    captureCanvas.height = video.videoHeight || 480;
-    const ctx = captureCanvas.getContext('2d');
-    ctx.drawImage(video, 0, 0);
+    const fullCanvas = document.createElement('canvas');
+    fullCanvas.width = video.videoWidth || 640;
+    fullCanvas.height = video.videoHeight || 480;
+    const fullCtx = fullCanvas.getContext('2d');
+    fullCtx.drawImage(video, 0, 0);
 
-    const frameBase64 = captureCanvas.toDataURL('image/jpeg', 0.85);
+    const frameBase64 = fullCanvas.toDataURL('image/jpeg', 0.85);
 
-    // Perform full-resolution client detection on the captured snapshot
-    const result = await yoloWebEngine.detect(captureCanvas, CONF_THRESHOLD, IOU_THRESHOLD);
-    const primary = result.primaryResult;
+    if (engineMode.value === 'server_gpu') {
+      const response = await apiService.predictWebcam(frameBase64, true);
+      const data = response?.data || response;
 
-    // Save to History backend API
-    await apiService.saveWebcamHistory({
-      image: frameBase64,
-      method: 'webcam',
-      primaryResult: primary,
-      totalObjects: result.totalObjects,
-      inferenceTime: result.inferenceTime,
-      detections: result.detections
-    });
+      if (data) {
+        const primary = data.primaryResult;
+        lastCaptured.value = {
+          className: primary ? primary.className : 'Không phát hiện rác',
+          confidencePercent: primary ? primary.confidencePercent : 0,
+          inferenceTime: data.inferenceTime || 0,
+          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+      }
+    } else {
+      // Trong chế độ WebGPU client: nhận diện trực tiếp và lưu vào lịch sử
+      const result = await yoloWebEngine.detect(fullCanvas, CONF_THRESHOLD, IOU_THRESHOLD);
+      const primary = result.primaryResult;
 
-    lastCaptured.value = {
-      className: primary ? primary.className : 'Không phát hiện rác',
-      confidencePercent: primary ? primary.confidencePercent : 0,
-      inferenceTime: result.inferenceTime,
-      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    };
+      await apiService.saveWebcamHistory({
+        image: frameBase64,
+        method: 'webcam',
+        primaryResult: primary,
+        totalObjects: result.totalObjects,
+        inferenceTime: result.inferenceTime,
+        detections: result.detections
+      });
+
+      lastCaptured.value = {
+        className: primary ? primary.className : 'Không phát hiện rác',
+        confidencePercent: primary ? primary.confidencePercent : 0,
+        inferenceTime: result.inferenceTime,
+        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      };
+    }
   } catch (err) {
-    console.error('[WebcamClassifier] Lỗi lưu ảnh lịch sử:', err);
+    console.error('[WebcamClassifier] Lỗi khi chụp & lưu ảnh:', err);
     alert('Không thể lưu ảnh lịch sử: ' + (err.message || 'Lỗi kết nối'));
   } finally {
     isCapturing.value = false;
@@ -531,5 +675,9 @@ onUnmounted(() => {
 
 .pointer-events-none {
   pointer-events: none;
+}
+
+.transition-all {
+  transition: all 0.2s ease-in-out;
 }
 </style>

@@ -263,47 +263,36 @@ function drawOriginalImage(imgSrc) {
   img.src = imgSrc;
 }
 
-import yoloWebEngine, { CONF_THRESHOLD, IOU_THRESHOLD } from '../../services/yoloWebEngine';
-
 async function classifyImage() {
-  if (!selectedImage.value) return;
+  if (!selectedFile.value && !selectedImage.value) return;
   isLoading.value = true;
 
   try {
-    const img = new Image();
-    img.src = selectedImage.value;
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-    });
+    let response;
+    if (selectedFile.value) {
+      const formData = new FormData();
+      formData.append('image', selectedFile.value);
+      response = await apiService.predictImage(formData);
+    } else {
+      // Fallback if image is base64 string
+      response = await apiService.predictWebcam(selectedImage.value, true);
+    }
 
-    // Run 100% Client-side ONNX Web AI inference
-    await yoloWebEngine.loadModel('/models/best.onnx');
-    const detectionResult = await yoloWebEngine.detect(img, CONF_THRESHOLD, IOU_THRESHOLD);
+    const data = response?.data || response;
+    if (data) {
+      result.value = {
+        ...data,
+        imageUrl: data.imageUrl || selectedImage.value
+      };
+      hasResult.value = true;
 
-    result.value = {
-      ...detectionResult,
-      imageUrl: selectedImage.value,
-      primaryResult: detectionResult.primaryResult
-    };
-    hasResult.value = true;
-
-    // Optionally save to history database asynchronously
-    apiService.saveWebcamHistory({
-      image: selectedImage.value,
-      method: 'image',
-      primaryResult: detectionResult.primaryResult,
-      totalObjects: detectionResult.totalObjects,
-      inferenceTime: detectionResult.inferenceTime,
-      detections: detectionResult.detections
-    }).catch(e => console.warn('Không thể lưu lịch sử ảnh:', e));
-
-    nextTick(() => {
-      drawDetectionOverlay(selectedImage.value, detectionResult.detections);
-    });
+      nextTick(() => {
+        drawDetectionOverlay(selectedImage.value, data.detections || []);
+      });
+    }
   } catch (error) {
     console.error('Lỗi phân loại ảnh:', error);
-    alert(error.message || 'Không thể thực hiện phân loại ảnh.');
+    alert(error.message || 'Không thể thực hiện phân loại ảnh từ GPU Server.');
   } finally {
     isLoading.value = false;
   }

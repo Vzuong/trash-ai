@@ -121,8 +121,9 @@
 
             <!-- Engine Badge -->
             <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-success text-white small" title="Mô hình AI chạy trực tiếp trên GPU Server">
-                <i class="bi bi-gpu-card me-1"></i> {{ modelBackend || 'NVIDIA GPU Server' }}
+              <span class="badge text-white small" :class="engineMode === 'server_gpu' ? 'bg-success' : 'bg-primary'" :title="engineMode === 'server_gpu' ? 'Mô hình AI chạy trên GPU Máy Tính' : 'Mô hình AI chạy trên GPU thiết bị của bạn (WebGPU)'">
+                <i :class="engineMode === 'server_gpu' ? 'bi-gpu-card' : 'bi-laptop'" class="me-1"></i>
+                {{ engineMode === 'server_gpu' ? (modelBackend || 'NVIDIA GPU (Local)') : (clientBackend || 'WebGPU Client') }}
               </span>
               <span v-if="detectedCount > 0" class="badge bg-primary">
                 {{ detectedCount }} vật thể
@@ -280,14 +281,22 @@ import apiService from '../../services/api';
 const videoElement = ref(null);
 const overlayCanvas = ref(null);
 
-// Dual-Engine Mode: 'server_gpu' (Thuyết trình trên máy) | 'client_webgpu' (Người xem qua link Render)
-const engineMode = ref('server_gpu');
+// Synchronously detect hostname:
+// - Localhost / Local IP -> 'server_gpu' (NVIDIA GPU on presentation PC)
+// - Render / Public Internet -> ALWAYS 'client_webgpu' (Run on viewer device GPU, never send to Render CPU)
+const isRunningLocally = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || 
+   window.location.hostname === '127.0.0.1' || 
+   window.location.hostname.includes('192.168.'));
+
+const engineMode = ref(isRunningLocally ? 'server_gpu' : 'client_webgpu');
 const clientModelLoading = ref(false);
 const clientBackend = ref('WebGPU');
 
 const modelStatus = ref('ready'); // 'ready' | 'error'
-const modelBackend = ref('NVIDIA GPU');
+const modelBackend = ref(isRunningLocally ? 'NVIDIA GPU (Local)' : 'WebGPU (Thiết bị của bạn)');
 const loadErrorMessage = ref('');
+let serverHasGPUState = false;
 
 const isStreaming = ref(false);
 const isPaused = ref(false);
@@ -313,6 +322,11 @@ let captureCanvas = null;
 let captureCtx = null;
 
 async function setEngineMode(mode) {
+  if (mode === 'server_gpu' && !isRunningLocally && !serverHasGPUState) {
+    const ok = confirm('⚠️ Chú ý: Máy chủ đám mây Render là gói miễn phí KHÔNG CÓ GPU (chỉ có CPU yếu).\n\nNếu bạn chọn chế độ này, frame camera phải bay sang Mỹ xử lý trên CPU nên độ trễ sẽ bị chậm ~2 giây.\n\nBạn có muốn giữ chế độ "WebGPU Trình Duyệt" để dùng GPU của chính máy bạn không?');
+    if (ok) return;
+  }
+
   engineMode.value = mode;
   if (mode === 'client_webgpu') {
     if (yoloWebEngine.status !== 'ready') {
@@ -332,17 +346,18 @@ async function setEngineMode(mode) {
 }
 
 async function initModel() {
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  let serverHasGPU = false;
-
   try {
     const healthRes = await apiService.checkHealth();
     if (healthRes && healthRes.ai) {
       const dev = (healthRes.ai.device || healthRes.ai.backend || '').toLowerCase();
       if (dev.includes('cuda') || dev.includes('gpu') || dev.includes('nvidia') || dev.includes('1650') || dev.includes('rtx')) {
-        serverHasGPU = true;
+        serverHasGPUState = true;
       }
-      modelBackend.value = healthRes.ai.device || 'NVIDIA GPU Server';
+      if (isRunningLocally || serverHasGPUState) {
+        modelBackend.value = healthRes.ai.device || 'NVIDIA GPU (Local)';
+      } else {
+        modelBackend.value = 'Render Cloud (CPU)';
+      }
     }
   } catch (err) {
     console.warn('[WebcamClassifier] Kiểm tra AI Health ban đầu:', err);
@@ -351,7 +366,7 @@ async function initModel() {
   // Tự động nhận diện môi trường:
   // - Nếu chạy trên localhost hoặc server có GPU NVIDIA -> ưu tiên Server GPU cho thuyết trình siêu mượt (~20ms)
   // - Nếu chạy trên Render (cloud công khai không GPU) -> tự động kích hoạt WebGPU để người xem dùng GPU máy họ!
-  if (isLocalhost || serverHasGPU) {
+  if (isRunningLocally || serverHasGPUState) {
     engineMode.value = 'server_gpu';
   } else {
     engineMode.value = 'client_webgpu';
@@ -376,6 +391,18 @@ async function checkCameras() {
 }
 
 async function startCamera() {
+  if (engineMode.value === 'client_webgpu' && yoloWebEngine.status !== 'ready') {
+    clientModelLoading.value = true;
+    try {
+      await yoloWebEngine.loadModel('/models/best.onnx');
+      clientBackend.value = yoloWebEngine.activeProvider || 'WebGPU';
+    } catch (e) {
+      console.warn('Lỗi nạp mô hình WebGPU:', e);
+    } finally {
+      clientModelLoading.value = false;
+    }
+  }
+
   try {
     const constraints = {
       video: {

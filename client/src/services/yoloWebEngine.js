@@ -1,14 +1,9 @@
 import * as ort from 'onnxruntime-web';
 
 // Configure ONNX Runtime Web paths for WASM assets
-ort.env.wasm.wasmPaths = {
-  'ort-wasm.wasm': '/wasm/ort-wasm.wasm',
-  'ort-wasm-simd.wasm': '/wasm/ort-wasm-simd.wasm',
-  'ort-wasm-threaded.wasm': '/wasm/ort-wasm-threaded.wasm',
-  'ort-wasm-simd-threaded.wasm': '/wasm/ort-wasm-simd-threaded.wasm',
-};
+ort.env.wasm.wasmPaths = '/wasm/';
 
-// Also support CDN fallback for WASM if local files are missing
+// Configure thread count for WASM SIMD
 try {
   ort.env.wasm.numThreads = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
 } catch (e) {
@@ -128,13 +123,7 @@ class YOLOWebEngine {
         name: 'webgpu', 
         label: 'WebGPU (Hardware Accelerated)',
         options: {
-          executionProviders: [
-            {
-              name: 'webgpu',
-              deviceType: 'default',
-              powerPreference: 'high-performance'
-            }
-          ],
+          executionProviders: ['webgpu'],
           graphOptimizationLevel: 'all'
         }
       },

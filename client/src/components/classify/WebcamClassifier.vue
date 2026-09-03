@@ -12,65 +12,6 @@
       </div>
     </div>
 
-    <!-- AI Engine Mode Switcher Bar -->
-    <div class="card border-0 shadow-sm p-3 mb-3 rounded-4 bg-white">
-      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-        <div class="d-flex align-items-center gap-2">
-          <span class="fw-bold text-dark small d-flex align-items-center gap-1">
-            <i class="bi bi-cpu-fill text-success fs-5"></i>
-            Bộ xử lý AI:
-          </span>
-
-          <!-- Nếu chạy Localhost trên máy bạn: Cho phép chọn Local GPU NVIDIA để thuyết trình -->
-          <div v-if="isRunningLocally" class="btn-group p-1 bg-light rounded-pill border" role="group">
-            <button
-              type="button"
-              class="btn btn-sm rounded-pill px-3 py-1 fw-semibold transition-all"
-              :class="engineMode === 'server_gpu' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted border-0'"
-              @click="setEngineMode('server_gpu')"
-              title="Chạy trên GPU NVIDIA của máy tính (Khuyên dùng khi thuyết trình trên máy)"
-            >
-              <i class="bi bi-lightning-charge-fill text-warning me-1"></i> GPU Máy Tính (Thuyết trình)
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm rounded-pill px-3 py-1 fw-semibold transition-all"
-              :class="engineMode === 'client_webgpu' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'"
-              @click="setEngineMode('client_webgpu')"
-              title="Chạy bằng card đồ họa / chip của thiết bị người xem (WebGPU)"
-            >
-              <i class="bi bi-laptop me-1"></i> WebGPU Trình Duyệt
-            </button>
-          </div>
-
-          <!-- Nếu chạy trên Render Cloud: Cố định 100% WebGPU phần cứng trên máy khách (0% dính dáng đến CPU Render) -->
-          <div v-else class="d-flex align-items-center">
-            <span class="badge bg-primary text-white px-3 py-2 rounded-pill shadow-sm">
-              <i class="bi bi-lightning-charge-fill text-warning me-1"></i> WebGPU Phần Cứng (Chạy trên máy người xem)
-            </span>
-          </div>
-        </div>
-
-        <div>
-          <span v-if="engineMode === 'server_gpu'" class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
-            <i class="bi bi-check-circle-fill me-1"></i> Thuyết trình: Khử trễ, GPU máy bạn xử lý (~20ms)
-          </span>
-          <span v-else class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
-            <i class="bi bi-shield-check me-1"></i> 100% WebGPU Client: 0% dính CPU Render, không tốn tài nguyên máy chủ
-          </span>
-        </div>
-      </div>
-
-      <!-- WebGPU Loading alert if downloading model on client -->
-      <div v-if="engineMode === 'client_webgpu' && clientModelLoading" class="alert alert-info d-flex align-items-center mb-0 mt-3 shadow-none border">
-        <div class="spinner-border spinner-border-sm text-info me-3" role="status"></div>
-        <div class="small">
-          <strong>Đang kích hoạt WebGPU trên thiết bị của bạn...</strong>
-          <span class="text-muted ms-1">(Chỉ tải một lần duy nhất vào bộ nhớ thiết bị, không tốn tải máy chủ).</span>
-        </div>
-      </div>
-    </div>
-
     <div class="row g-4">
       <!-- Camera Preview Column -->
       <div class="col-lg-8">
@@ -128,12 +69,7 @@
               </span>
             </div>
 
-            <!-- Engine Badge -->
             <div class="d-flex align-items-center gap-2">
-              <span class="badge text-white small" :class="engineMode === 'server_gpu' ? 'bg-success' : 'bg-primary'" :title="engineMode === 'server_gpu' ? 'Mô hình AI chạy trên GPU Máy Tính' : 'Mô hình AI chạy trên GPU thiết bị của bạn (WebGPU)'">
-                <i :class="engineMode === 'server_gpu' ? 'bi-gpu-card' : 'bi-laptop'" class="me-1"></i>
-                {{ engineMode === 'server_gpu' ? (modelBackend || 'NVIDIA GPU (Local)') : (clientBackend || 'WebGPU Client') }}
-              </span>
               <span v-if="detectedCount > 0" class="badge bg-primary">
                 {{ detectedCount }} vật thể
               </span>

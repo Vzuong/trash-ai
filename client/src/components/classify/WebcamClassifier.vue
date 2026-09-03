@@ -470,8 +470,22 @@ function startDetectionLoop() {
       const t0 = performance.now();
 
       try {
-        if (engineMode.value === 'server_gpu') {
-          // --- CHẾ ĐỘ 1: SERVER GPU NVIDIA (Thuyết trình siêu mượt ~20ms) ---
+        let ranClient = false;
+        if (yoloWebEngine && yoloWebEngine.status === 'ready') {
+          try {
+            const result = await yoloWebEngine.detect(video, CONF_THRESHOLD, IOU_THRESHOLD);
+            currentInferenceTime.value = result.inferenceTime;
+            activeDetections.value = result.detections || [];
+            detectedCount.value = result.totalObjects || 0;
+            clientBackend.value = result.backend || clientBackend.value;
+            ranClient = true;
+          } catch (e) {
+            console.warn('[WebcamClassifier] WebGPU frame error, fallback server:', e.message);
+          }
+        }
+
+        if (!ranClient) {
+          // Gửi frame sang server (/api/predict/webcam) - đảm bảo luôn khoanh rác 100% như localhost
           const maxDim = 640;
           const vW = video.videoWidth || 640;
           const vH = video.videoHeight || 480;
@@ -503,17 +517,6 @@ function startDetectionLoop() {
             if (data.model) {
               modelBackend.value = data.model;
             }
-          }
-        } else {
-          // --- CHẾ ĐỘ 2: CLIENT WEBGPU (Cho người khác xem qua Render link) ---
-          if (yoloWebEngine.status === 'ready') {
-            const result = await yoloWebEngine.detect(video, CONF_THRESHOLD, IOU_THRESHOLD);
-            currentInferenceTime.value = result.inferenceTime;
-            activeDetections.value = result.detections || [];
-            detectedCount.value = result.totalObjects || 0;
-            clientBackend.value = result.backend || clientBackend.value;
-          } else if (!clientModelLoading.value) {
-            setEngineMode('client_webgpu');
           }
         }
       } catch (err) {

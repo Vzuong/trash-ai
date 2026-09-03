@@ -8,6 +8,11 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image, ImageOps
 
+try:
+    import onnxruntime as ort
+except Exception:
+    ort = None
+
 app = Flask(__name__)
 CORS(app)
 

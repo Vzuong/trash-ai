@@ -54,7 +54,7 @@ def main():
     time.sleep(2)
 
     domain_url = "https://serving-numerous-spree.ngrok-free.dev"
-    target_url = f"{domain_url}/classify"
+    target_url = domain_url
 
     # Save to file
     with open(os.path.join(base_dir, "current_tunnel_url.txt"), "w", encoding="utf-8") as f:
@@ -64,7 +64,7 @@ def main():
     log(" 🎉 HE THONG DA ONLINE HOAN TAT VOI NGROK STATIC DOMAIN!")
     log("=" * 65)
     log(f" 📱 LINK CO DINH TRON DOI:  {target_url}")
-    log(f" 💻 Link may tinh noi bo:   http://localhost:5000/classify")
+    log(f" 💻 Link may tinh noi bo:   http://localhost:5000")
     log(" ⚡ Toc do suy luan:        30 - 60 FPS (Do tre ~20ms tren GPU)")
     log(" 🔒 Domain nay se GIU NGUYEN 100% vinh vien khong bao gio doi!")
     log("=" * 65)

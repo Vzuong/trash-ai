@@ -1,0 +1,18 @@
+# YOLOv11 Balanced Trash Recognition Dataset Configuration
+path: ./Trash_dataset_balanced
+train: train/images
+val: val/images
+test: test/images
+
+# Number of classes
+nc: 7
+
+# Class Names
+names:
+  0: battery
+  1: cardboard
+  2: paper
+  3: glass
+  4: metal
+  5: plastic
+  6: organic

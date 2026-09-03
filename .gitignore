@@ -30,3 +30,7 @@ Thumbs.db
 .idea/
 .gemini/
 .agents/
+
+# Local Windows batch and tunnel scripts
+*.bat
+run_live_gpu_tunnel.py

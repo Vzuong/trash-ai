@@ -1,7 +1,7 @@
 const path = require('path');
 
 const config = {
-  port: process.env.PORT || 7860,
+  port: process.env.PORT || 5000,
   env: process.env.NODE_ENV || 'production',
   uploadDir: path.join(__dirname, '..', 'uploads'),
   dataDir: path.join(__dirname, '..', 'data'),

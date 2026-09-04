@@ -4,8 +4,21 @@ import base64
 import numpy as np
 import cv2
 
+import os
+
 def run_tests():
-    base_url = 'http://localhost:7860'
+    # Thử cổng 5000 (chạy local theo README) hoặc 7860 (chạy Docker)
+    base_url = os.environ.get('APP_URL')
+    if not base_url:
+        for port in [5000, 7860]:
+            try:
+                urllib.request.urlopen(f'http://localhost:{port}/api/health', timeout=1)
+                base_url = f'http://localhost:{port}'
+                break
+            except Exception:
+                pass
+    if not base_url:
+        base_url = 'http://localhost:5000'
 
     # 1. Health Check
     print("=== 1. Health Check Endpoint ===")

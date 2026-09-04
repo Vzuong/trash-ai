@@ -11,9 +11,9 @@ def get_parser():
     parser.add_argument('--name', type=str, default='trash_yolo11s_rtx4060_balanced', help='Experiment folder name to save checkpoints and results')
     parser.add_argument('--append_timestamp', type=bool, default=True, help='Append date-time timestamp to folder name to avoid overwriting')
     
-    # Image & Batch settings (Tối ưu hóa cho RTX 4060 16GB VRAM)
+    # Image & Batch settings (Tối ưu hóa cho Google Colab & RTX 4060 12GB RAM)
     parser.add_argument('--img_size', default=640, type=int, help='Image size for YOLO training (e.g., 640)')
-    parser.add_argument('--batch_size', default=32, type=int, help='Batch size for training (Tối ưu cho RTX 4060 16GB VRAM: batch=32)')
+    parser.add_argument('--batch_size', default=32, type=int, help='Batch size for training (Tối ưu cho Google Colab & RTX 4060 12GB RAM)')
     
     # Optimizer & Training Hyperparameters
     parser.add_argument('--lr', default=0.001, type=float, help='Initial learning rate (AdamW)')
@@ -46,7 +46,7 @@ def get_parser():
     parser.add_argument('--dataset_path', type=str, default='Trash_dataset_balanced', help='Root path to Trash dataset directory')
     
     # System & Save settings
-    parser.add_argument('--gpu', type=str, default='0', help='GPU ID (0 for RTX 4060)')
+    parser.add_argument('--gpu', type=str, default='0', help='GPU ID (0 for RTX 4060 / Colab GPU)')
     parser.add_argument('--workers', type=int, default=4, help='Number of data loader worker threads')
     parser.add_argument('--project', type=str, default='runs', help='Project root save directory')
 

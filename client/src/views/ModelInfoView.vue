@@ -258,6 +258,10 @@
                     <td class="bg-light text-muted fw-semibold">Tăng cường dữ liệu</td>
                     <td class="small">Mosaic (1.0), Scale (0.5), Rotation (15.0), Label Smoothing (0.1), Dropout (0.1)</td>
                   </tr>
+                  <tr>
+                    <td class="bg-light text-muted fw-semibold">Phần cứng huấn luyện</td>
+                    <td class="fw-semibold text-dark">{{ modelData.modelInfo?.trainingConfig?.device || 'Google Colab GPU & Local (NVIDIA GeForce RTX 4060, 12GB RAM)' }}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>

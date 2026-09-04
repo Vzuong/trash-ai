@@ -107,7 +107,8 @@ Dự án thử nghiệm trên kiến trúc **YOLO11s** (phiên bản thuộc dò
 ```text
 - Model Architecture: YOLO11s (Ultralytics)
 - Image Size: 640 x 640
-- Batch Size: 16 (Cấu hình thử nghiệm trên phần cứng Google Colab GPU T4 16GB)
+- Môi trường phần cứng: Google Colab & Local Machine (NVIDIA GeForce RTX 4060, 12GB RAM)
+- Batch Size: 16 - 32 (Phù hợp với môi trường Google Colab GPU & RTX 4060 12GB RAM)
 - Optimizer: AdamW (lr0 = 0.001, weight_decay = 0.0005)
 - Learning Rate Scheduler: Cosine Annealing (cos_lr = True)
 - Maximum Epochs thiết lập: 100 epochs (Early stopping patience = 30)

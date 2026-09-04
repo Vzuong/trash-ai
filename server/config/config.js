@@ -106,7 +106,7 @@ const config = {
       batchSize: 32,
       imgSize: '640x640',
       optimizer: 'AdamW (lr0=0.0005, cos_lr=True)',
-      device: 'GPU Google Colab (Tesla T4)',
+      device: 'Google Colab GPU & Local (NVIDIA GeForce RTX 4060, 12GB RAM)',
       augmentations: 'Mosaic (1.0), Scale (0.5), Rotation (15.0), Label Smoothing (0.1), Dropout (0.1)'
     },
     metrics: {

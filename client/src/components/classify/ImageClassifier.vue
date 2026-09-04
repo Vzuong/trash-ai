@@ -269,28 +269,64 @@ async function classifyImage() {
   isLoading.value = true;
 
   try {
-    // 1. Tải mô hình WebGPU vào trình duyệt (nếu chưa nạp)
-    if (yoloWebEngine.status !== 'ready') {
-      await yoloWebEngine.loadModel('/models/best.onnx');
+    let detectResult = null;
+    let fromServer = false;
+
+    // Ưu tiên 1: Gửi ảnh lên Server Backend API (/api/predict)
+    // Hoạt động 100% ổn định trên mọi thiết bị và trình duyệt (không phụ thuộc WebGPU của máy khách)
+    if (selectedFile.value) {
+      try {
+        const formData = new FormData();
+        formData.append('image', selectedFile.value);
+        const res = await apiService.predictImage(formData);
+        const data = res?.data || res;
+        if (data && (data.success || data.detections)) {
+          detectResult = {
+            primaryResult: data.primaryResult,
+            detections: data.detections || [],
+            totalObjects: data.totalObjects !== undefined ? data.totalObjects : (data.detections?.length || 0),
+            inferenceTime: data.inferenceTime || 0
+          };
+          fromServer = true;
+        }
+      } catch (serverErr) {
+        console.warn('[ImageClassifier] Server API không phản hồi, chuyển sang WebGPU fallback:', serverErr.message);
+      }
     }
 
-    // 2. Nạp ảnh vào HTML Image
-    const img = new Image();
-    img.src = selectedImage.value;
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-    });
+    // Ưu tiên 2: Fallback nhận diện trực tiếp trong trình duyệt bằng WebGPU/WASM (nếu Server tắt)
+    if (!detectResult) {
+      const clientInferencePromise = (async () => {
+        if (yoloWebEngine.status !== 'ready') {
+          await yoloWebEngine.loadModel('/models/best.onnx');
+        }
+        const img = new Image();
+        img.src = selectedImage.value;
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+        return await yoloWebEngine.detect(img, CONF_THRESHOLD, IOU_THRESHOLD);
+      })();
 
-    // 3. Nhận diện trực tiếp 100% bằng WebGPU của máy người dùng (khoảng ~25ms)
-    const detectResult = await yoloWebEngine.detect(img, CONF_THRESHOLD, IOU_THRESHOLD);
+      // Đặt timeout 12s để tránh treo vô hạn nếu card đồ họa/trình duyệt không hỗ trợ WebGPU
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Dịch vụ AI chưa sẵn sàng hoặc trình duyệt không phản hồi. Vui lòng đảm bảo backend Python yolo_service.py đang chạy.')), 12000)
+      );
+
+      detectResult = await Promise.race([clientInferencePromise, timeoutPromise]);
+    }
+
+    if (!detectResult) {
+      throw new Error('Không nhận được kết quả nhận diện từ mô hình AI.');
+    }
 
     result.value = {
       success: true,
       primaryResult: detectResult.primaryResult,
-      detections: detectResult.detections,
-      totalObjects: detectResult.totalObjects,
-      inferenceTime: detectResult.inferenceTime,
+      detections: detectResult.detections || [],
+      totalObjects: detectResult.totalObjects || 0,
+      inferenceTime: detectResult.inferenceTime || 0,
       imageUrl: selectedImage.value
     };
     hasResult.value = true;
@@ -299,19 +335,21 @@ async function classifyImage() {
       drawDetectionOverlay(selectedImage.value, detectResult.detections || []);
     });
 
-    // 4. Lưu kết quả và ảnh vào lịch sử hệ thống (không dùng CPU để tính toán)
-    apiService.saveWebcamHistory({
-      image: selectedImage.value,
-      method: 'upload',
-      primaryResult: detectResult.primaryResult,
-      totalObjects: detectResult.totalObjects,
-      inferenceTime: detectResult.inferenceTime,
-      detections: detectResult.detections
-    }).catch((err) => console.warn('Lưu lịch sử ảnh upload:', err));
+    // Nếu chạy từ WebGPU client, lưu lịch sử thủ công (nếu từ server thì server đã tự lưu)
+    if (!fromServer) {
+      apiService.saveWebcamHistory({
+        image: selectedImage.value,
+        method: 'upload',
+        primaryResult: detectResult.primaryResult,
+        totalObjects: detectResult.totalObjects,
+        inferenceTime: detectResult.inferenceTime,
+        detections: detectResult.detections
+      }).catch((err) => console.warn('Lưu lịch sử ảnh upload:', err));
+    }
 
   } catch (error) {
     console.error('Lỗi phân loại ảnh:', error);
-    alert('Không thể thực hiện phân loại ảnh: ' + (error.message || 'Lỗi không xác định'));
+    alert('Không thể thực hiện phân loại ảnh:\n' + (error.message || 'Lỗi không xác định. Hãy kiểm tra xem Python AI Service (yolo_service.py) đã được khởi động chưa.'));
   } finally {
     isLoading.value = false;
   }
@@ -332,16 +370,23 @@ function drawDetectionOverlay(imgSrc, detections) {
     detections.forEach((det) => {
       const { bbox, bboxNorm, color, className, confidencePercent } = det;
       let x, y, w, h;
-      if (bboxNorm) {
-        x = bboxNorm.x1 * canvas.width;
-        y = bboxNorm.y1 * canvas.height;
-        w = (bboxNorm.x2 - bboxNorm.x1) * canvas.width;
-        h = (bboxNorm.y2 - bboxNorm.y1) * canvas.height;
-      } else {
+      const bx1 = bboxNorm?.x1 ?? bboxNorm?.normX1;
+      const by1 = bboxNorm?.y1 ?? bboxNorm?.normY1;
+      const bx2 = bboxNorm?.x2 ?? bboxNorm?.normX2;
+      const by2 = bboxNorm?.y2 ?? bboxNorm?.normY2;
+
+      if (bx1 !== undefined && bx2 !== undefined) {
+        x = bx1 * canvas.width;
+        y = by1 * canvas.height;
+        w = (bx2 - bx1) * canvas.width;
+        h = (by2 - by1) * canvas.height;
+      } else if (bbox) {
         x = bbox.x1;
         y = bbox.y1;
         w = bbox.x2 - bbox.x1;
         h = bbox.y2 - bbox.y1;
+      } else {
+        return;
       }
 
       // Box outline

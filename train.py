@@ -3,9 +3,7 @@ import time
 import shutil
 import torch
 from config import get_parser, get_run_name, get_weights_path
-from data import create_yolo_dataset_structure
-from model import get_yolo_model, ULTRALYTICS_AVAILABLE
-from util import visualize_after_training
+from ultralytics import YOLO
 
 # --- Custom Callbacks for Epoch & Total Training Time Tracking ---
 def on_train_start(trainer):
@@ -75,18 +73,16 @@ def train_yolo(cfg):
     print(f"Early Stop Patience    : {cfg.early_stop} epochs without improvement")
     print("=" * 65)
 
-    # 1. Ensure dataset structure exists
-    create_yolo_dataset_structure(cfg.dataset_path)
-
-    # Check if data.yaml exists
+    # 1. Check if data.yaml exists
     if not os.path.exists(cfg.data_yaml):
         print(f"[ERROR] Data config file '{cfg.data_yaml}' not found!")
         return
 
     # 2. Load YOLOv11 model
-    model = get_yolo_model(weights=cfg.weights, task='detect')
-    if model is None:
-        print("[ERROR] Could not load YOLOv11. Please ensure 'ultralytics' is installed: pip install ultralytics")
+    try:
+        model = YOLO(cfg.weights)
+    except Exception as e:
+        print(f"[ERROR] Could not load YOLOv11 weights '{cfg.weights}': {e}")
         return
 
     # Add Callbacks for Epoch & Total Timing
@@ -156,7 +152,7 @@ def train_yolo(cfg):
     if os.path.exists(best_weights):
         print("\n📊 [EVALUATION] Calculating quantitative metrics on Best Checkpoint...")
         try:
-            val_model = get_yolo_model(weights=best_weights, task='detect')
+            val_model = YOLO(best_weights)
             val_res = val_model.val(data=cfg.data_yaml, imgsz=cfg.img_size, device=cfg.gpu, verbose=False)
             
             p = val_res.box.mp
@@ -181,18 +177,6 @@ def train_yolo(cfg):
             print("=" * 65)
         except Exception as e:
             print(f"[WARNING] Could not calculate val metrics: {e}")
-
-    # 4. Automatic post-training visualization
-    if os.path.exists(best_weights):
-        visualize_after_training(
-            weights_path=best_weights,
-            dataset_path=cfg.dataset_path,
-            save_dir=save_dir,
-            img_size=cfg.img_size,
-            num_samples=10
-        )
-    else:
-        print(f"[WARNING] Best weights file '{best_weights}' not found. Skipping post-training visualization.")
 
     return results
 

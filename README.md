@@ -1,10 +1,10 @@
-# Hệ Thống AI Hỗ Trợ Nhận Diện Và Phân Loại Rác Thải (YOLO11s)
+# Hệ Thống AI Hỗ Trợ Nhận Diện Và Phân Loại Rác Thải (YOLO11s + CBAM)
 
-> **Hệ thống ứng dụng mô hình thị giác máy tính YOLO11s nhằm hỗ trợ phát hiện, khoanh vùng và phân loại rác thải thành 7 nhóm trên nền tảng Web và luồng Camera.**
+> **Hệ thống ứng dụng mô hình thị giác máy tính YOLO11s kết hợp cơ chế chú ý CBAM nhằm hỗ trợ phát hiện, khoanh vùng và phân loại rác thải thành 7 nhóm trên nền tảng Web và luồng Camera.**
 
-[![YOLO11s](https://img.shields.io/badge/Model-YOLO11s-brightgreen.svg)](https://github.com/ultralytics/ultralytics)
+[![YOLO11s-CBAM](https://img.shields.io/badge/Model-YOLO11s--CBAM-brightgreen.svg)](https://github.com/ultralytics/ultralytics)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
-[![mAP@50](https://img.shields.io/badge/mAP%4050-81.25%25-blue.svg)](#5-kết-quả-đánh-giá-mô-hình-evaluation-metrics)
+[![mAP@50](https://img.shields.io/badge/mAP%4050-91.18%25-brightgreen.svg)](#5-kết-quả-đánh-giá-mô-hình-evaluation-metrics)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ed.svg)](https://www.docker.com/)
 [![Deploy](https://img.shields.io/badge/Deploy-Render-46e3b7.svg)](#12-triển-khai-hệ-thống-cloud-deployment)
 
@@ -45,7 +45,7 @@ Mô hình được huấn luyện để nhận diện 7 nhóm rác thải sinh h
 Hệ thống sử dụng toàn bộ **26.048 ảnh** với tổng cộng **59.080 Bounding Boxes** đã được cân bằng chuẩn xác trên 7 nhóm rác thải sinh hoạt (`battery`, `cardboard`, `paper`, `glass`, `metal`, `plastic`, `organic`).
 
 ### 🔄 Phương pháp kiểm chứng chéo 3-Fold (3-Fold Cross-Validation):
-Để đảm bảo tính khách quan khoa học cao nhất, ngăn ngừa tuyệt đối hiện tượng rò rỉ dữ liệu (Data Leakage) và đánh giá chính xác năng lực tổng quát hóa của mô hình, toàn bộ 26.048 ảnh được gộp lại, xáo trộn ngẫu nhiên có kiểm soát (`random_seed = 42`) và chia đều thành **3 Fold độc lập** (K=3):
+Để đảm bảo tính khách quan khoa học cao nhất và đánh giá chính xác năng lực tổng quát hóa của mô hình, toàn bộ 26.048 ảnh được gộp lại, xáo trộn ngẫu nhiên có kiểm soát (`random_seed = 42`) và chia đều thành **3 Fold độc lập** (K=3):
 
 ```text
                TỔNG TẬP DỮ LIỆU CÂN BẰNG (26.048 ẢNH / 59.080 BOXES)

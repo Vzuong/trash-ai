@@ -11,6 +11,8 @@ ngrok.yml
 *.tar.gz
 *.csv
 *.png
+!client/public/*.png
+!client/dist/*.png
 
 # Python virtualenv & cache
 venv/

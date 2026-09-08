@@ -336,47 +336,222 @@
 
       <!-- Official YOLO Evaluation Charts Gallery -->
       <div class="eco-card p-3 p-md-4 mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
           <div class="d-flex align-items-center gap-2">
             <i class="bi bi-images text-success fs-5"></i>
-            <h6 class="fw-bold mb-0 text-dark">Bộ Biểu Đồ Đánh Giá Thực Nghiệm Chuẩn YOLO (Evaluation Artifacts)</h6>
+            <div>
+              <h6 class="fw-bold mb-0 text-dark">Bộ Biểu Đồ Đánh Giá Thực Nghiệm Chuẩn YOLO (Evaluation Artifacts)</h6>
+              <span class="text-muted small">Kiểm thử độc lập trên tập Validation Fold 1 (8.682 bức ảnh, 100 Epochs)</span>
+            </div>
           </div>
-          <span class="badge bg-success-subtle text-success border border-success-subtle">
-            68 Epochs Balanced
-          </span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+              <i class="bi bi-check2-all me-1"></i>100 Epochs Balanced
+            </span>
+          </div>
         </div>
 
-        <div class="row g-3">
-          <!-- Results.png -->
-          <div class="col-md-6">
-            <div class="card h-100 border shadow-sm">
-              <div class="card-header bg-light py-2 d-flex align-items-center justify-content-between">
-                <span class="fw-bold small text-dark"><i class="bi bi-graph-up me-1"></i>Biểu Đồ 10 Khung Hình (results.png)</span>
-                <a href="/results.png" target="_blank" download="results_68epochs.png" class="btn btn-outline-success btn-xs d-flex align-items-center gap-1">
-                  <i class="bi bi-download"></i> Tải ảnh gốc
-                </a>
+        <div class="row g-4">
+          <!-- Card 1: Ma Trận Nhầm Lẫn Chuẩn Hóa (%) -->
+          <div class="col-lg-6">
+            <div class="card h-100 border shadow-sm rounded-3 overflow-hidden">
+              <div class="card-header bg-light py-2 px-3 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge bg-success text-white">Khuyến Nghị</span>
+                  <span class="fw-bold small text-dark"><i class="bi bi-grid-3x3 me-1"></i>Ma Trận Nhầm Lẫn Chuẩn Hóa (%)</span>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                  <button 
+                    type="button"
+                    class="btn btn-outline-secondary btn-xs d-flex align-items-center gap-1"
+                    @click="openModalImage('/confusion_matrix_normalized.png', 'Ma Trận Nhầm Lẫn Chuẩn Hóa (Normalized Confusion Matrix)', 'Tỷ lệ nhận diện chính xác theo từng lớp (Recall). Đạt 98% ở 3 nhóm rác phổ biến và 91% rác hữu cơ.')"
+                    title="Phóng to"
+                  >
+                    <i class="bi bi-arrows-fullscreen"></i>
+                  </button>
+                  <a href="/confusion_matrix_normalized.png" target="_blank" download="confusion_matrix_normalized.png" class="btn btn-outline-success btn-xs d-flex align-items-center gap-1">
+                    <i class="bi bi-download"></i> Tải ảnh 3K
+                  </a>
+                </div>
               </div>
-              <div class="card-body p-2 text-center bg-white">
-                <a href="/results.png" target="_blank" title="Bấm để xem kích thước lớn">
-                  <img src="/results.png" alt="YOLO11 Results 68 Epochs" class="img-fluid rounded border hover-zoom" style="max-height: 260px; object-fit: contain;" />
-                </a>
+              <div 
+                class="card-body p-2 text-center bg-white cursor-pointer" 
+                @click="openModalImage('/confusion_matrix_normalized.png', 'Ma Trận Nhầm Lẫn Chuẩn Hóa (Normalized Confusion Matrix)', 'Tỷ lệ nhận diện chính xác theo từng lớp (Recall). Đạt 98% ở 3 nhóm rác phổ biến và 91% rác hữu cơ.')"
+                title="Bấm để xem kích thước lớn"
+              >
+                <img 
+                  src="/confusion_matrix_normalized.png" 
+                  alt="Confusion Matrix Normalized" 
+                  class="img-fluid rounded border hover-zoom" 
+                  style="max-height: 280px; object-fit: contain; width: 100%;" 
+                />
+              </div>
+              <div class="card-footer bg-light p-2 small">
+                <div class="d-flex flex-wrap gap-1 justify-content-center mb-1">
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Pin: 98%</span>
+                  <span class="badge bg-warning-subtle text-dark border border-warning-subtle">Bìa: 98%</span>
+                  <span class="badge bg-info-subtle text-dark border border-info-subtle">Thủy tinh: 98%</span>
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">Hữu cơ: 91%</span>
+                  <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Kim loại: 85%</span>
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Giấy: 83%</span>
+                  <span class="badge bg-light text-dark border">Nhựa: 67%</span>
+                </div>
+                <p class="text-muted text-center mb-0 extra-small">
+                  Chuẩn hóa theo từng lớp thực tế (True label). Độ chính xác đạt 98% trên 3 lớp rác phổ biến và 91% rác hữu cơ.
+                </p>
               </div>
             </div>
           </div>
 
-          <!-- Confusion Matrix -->
-          <div class="col-md-6">
-            <div class="card h-100 border shadow-sm">
-              <div class="card-header bg-light py-2 d-flex align-items-center justify-content-between">
-                <span class="fw-bold small text-dark"><i class="bi bi-grid-3x3 me-1"></i>Ma Trận Nhầm Lẫn (confusion_matrix.png)</span>
-                <a href="/confusion_matrix.png" target="_blank" download="confusion_matrix.png" class="btn btn-outline-success btn-xs d-flex align-items-center gap-1">
-                  <i class="bi bi-download"></i> Tải ảnh gốc
-                </a>
+          <!-- Card 2: Biểu Đồ 10 Khung Hình Huấn Luyện (results.png) -->
+          <div class="col-lg-6">
+            <div class="card h-100 border shadow-sm rounded-3 overflow-hidden">
+              <div class="card-header bg-light py-2 px-3 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge bg-primary text-white">100 Epochs</span>
+                  <span class="fw-bold small text-dark"><i class="bi bi-graph-up me-1"></i>Biểu Đồ Huấn Luyện 10 Khung Hình (results.png)</span>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                  <button 
+                    type="button"
+                    class="btn btn-outline-secondary btn-xs d-flex align-items-center gap-1"
+                    @click="openModalImage('/results.png', 'Biểu Đồ Tiến Trình Huấn Luyện 100 Epochs (results.png)', '10 đồ thị chuẩn của Ultralytics thể hiện Loss đào tạo/kiểm định và các chỉ số Precision, Recall, mAP50, mAP50-95 qua 100 Epochs.')"
+                    title="Phóng to"
+                  >
+                    <i class="bi bi-arrows-fullscreen"></i>
+                  </button>
+                  <a href="/results.png" target="_blank" download="results_100epochs.png" class="btn btn-outline-success btn-xs d-flex align-items-center gap-1">
+                    <i class="bi bi-download"></i> Tải ảnh gốc
+                  </a>
+                </div>
               </div>
-              <div class="card-body p-2 text-center bg-white">
-                <a href="/confusion_matrix.png" target="_blank" title="Bấm để xem kích thước lớn">
-                  <img src="/confusion_matrix.png" alt="Confusion Matrix" class="img-fluid rounded border hover-zoom" style="max-height: 260px; object-fit: contain;" />
-                </a>
+              <div 
+                class="card-body p-2 text-center bg-white cursor-pointer" 
+                @click="openModalImage('/results.png', 'Biểu Đồ Tiến Trình Huấn Luyện 100 Epochs (results.png)', '10 đồ thị chuẩn của Ultralytics thể hiện Loss đào tạo/kiểm định và các chỉ số Precision, Recall, mAP50, mAP50-95 qua 100 Epochs.')"
+                title="Bấm để xem kích thước lớn"
+              >
+                <img 
+                  src="/results.png" 
+                  alt="YOLO11 Results 100 Epochs" 
+                  class="img-fluid rounded border hover-zoom" 
+                  style="max-height: 280px; object-fit: contain; width: 100%;" 
+                />
+              </div>
+              <div class="card-body py-1 px-2 border-top bg-light small">
+                <div class="d-flex flex-wrap justify-content-around text-center gap-1">
+                  <span class="small">Box Loss: <strong class="text-danger">0.468</strong></span>
+                  <span class="small">Cls Loss: <strong class="text-primary">0.354</strong></span>
+                  <span class="small">DFL Loss: <strong class="text-success">0.985</strong></span>
+                  <span class="small">Precision: <strong class="text-primary">93.1%</strong></span>
+                  <span class="small">Recall: <strong class="text-dark">85.6%</strong></span>
+                  <span class="small">mAP@50: <strong class="text-success">91.2%</strong></span>
+                </div>
+                <p class="text-muted text-center mb-0 mt-1 extra-small">
+                  Loss giảm đều và ổn định. Tại epoch 90 tắt mosaic augmentation giúp mô hình hội tụ sắc nét ở điểm tối ưu.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Ma Trận Nhầm Lẫn Mẫu Thô (confusion_matrix.png) -->
+          <div class="col-lg-6">
+            <div class="card h-100 border shadow-sm rounded-3 overflow-hidden">
+              <div class="card-header bg-light py-2 px-3 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge bg-secondary text-white">Số Lượng</span>
+                  <span class="fw-bold small text-dark"><i class="bi bi-grid-3x3 me-1"></i>Ma Trận Số Lượng Mẫu Thô (confusion_matrix.png)</span>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                  <button 
+                    type="button"
+                    class="btn btn-outline-secondary btn-xs d-flex align-items-center gap-1"
+                    @click="openModalImage('/confusion_matrix.png', 'Ma Trận Nhầm Lẫn Số Lượng Mẫu Thô (confusion_matrix.png)', 'Tổng hợp số lượng mẫu dự đoán chính xác và nhầm lẫn trên 8.682 ảnh kiểm thử (Fold 1).')"
+                    title="Phóng to"
+                  >
+                    <i class="bi bi-arrows-fullscreen"></i>
+                  </button>
+                  <a href="/confusion_matrix.png" target="_blank" download="confusion_matrix_raw.png" class="btn btn-outline-success btn-xs d-flex align-items-center gap-1">
+                    <i class="bi bi-download"></i> Tải ảnh 3K
+                  </a>
+                </div>
+              </div>
+              <div 
+                class="card-body p-2 text-center bg-white cursor-pointer" 
+                @click="openModalImage('/confusion_matrix.png', 'Ma Trận Nhầm Lẫn Số Lượng Mẫu Thô (confusion_matrix.png)', 'Tổng hợp số lượng mẫu dự đoán chính xác và nhầm lẫn trên 8.682 ảnh kiểm thử (Fold 1).')"
+                title="Bấm để xem kích thước lớn"
+              >
+                <img 
+                  src="/confusion_matrix.png" 
+                  alt="Raw Confusion Matrix" 
+                  class="img-fluid rounded border hover-zoom" 
+                  style="max-height: 280px; object-fit: contain; width: 100%;" 
+                />
+              </div>
+              <div class="card-footer bg-light p-2 small">
+                <p class="text-muted text-center mb-0 extra-small">
+                  Đếm số lượng bounding box thực tế được phân loại đúng và sai trong tập kiểm thử độc lập 8.682 ảnh.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4: Đường Cong Precision-Recall & F1 Curve -->
+          <div class="col-lg-6">
+            <div class="card h-100 border shadow-sm rounded-3 overflow-hidden">
+              <div class="card-header bg-light py-2 px-3 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="btn-group btn-group-sm">
+                    <button 
+                      type="button"
+                      class="btn btn-xs" 
+                      :class="activeCurve === 'pr' ? 'btn-success' : 'btn-outline-secondary'"
+                      @click="activeCurve = 'pr'"
+                    >
+                      Precision-Recall
+                    </button>
+                    <button 
+                      type="button"
+                      class="btn btn-xs" 
+                      :class="activeCurve === 'f1' ? 'btn-success' : 'btn-outline-secondary'"
+                      @click="activeCurve = 'f1'"
+                    >
+                      F1-Score
+                    </button>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                  <button 
+                    type="button"
+                    class="btn btn-outline-secondary btn-xs d-flex align-items-center gap-1"
+                    @click="openModalImage(activeCurve === 'pr' ? '/BoxPR_curve.png' : '/BoxF1_curve.png', activeCurve === 'pr' ? 'Đường Cong Precision - Recall (BoxPR_curve.png)' : 'Đường Cong F1 - Confidence (BoxF1_curve.png)', activeCurve === 'pr' ? 'Đường cong Precision-Recall đánh giá độ chính xác tổng thể mAP@0.50 đạt 91.2%.' : 'Đường cong F1-Score đạt đỉnh 0.89 tại ngưỡng confidence 0.472.')"
+                    title="Phóng to"
+                  >
+                    <i class="bi bi-arrows-fullscreen"></i>
+                  </button>
+                  <a :href="activeCurve === 'pr' ? '/BoxPR_curve.png' : '/BoxF1_curve.png'" target="_blank" :download="activeCurve === 'pr' ? 'BoxPR_curve.png' : 'BoxF1_curve.png'" class="btn btn-outline-success btn-xs d-flex align-items-center gap-1">
+                    <i class="bi bi-download"></i> Tải ảnh
+                  </a>
+                </div>
+              </div>
+              <div 
+                class="card-body p-2 text-center bg-white cursor-pointer" 
+                @click="openModalImage(activeCurve === 'pr' ? '/BoxPR_curve.png' : '/BoxF1_curve.png', activeCurve === 'pr' ? 'Đường Cong Precision - Recall (BoxPR_curve.png)' : 'Đường Cong F1 - Confidence (BoxF1_curve.png)', activeCurve === 'pr' ? 'Đường cong Precision-Recall đánh giá độ chính xác tổng thể mAP@0.50 đạt 91.2%.' : 'Đường cong F1-Score đạt đỉnh 0.89 tại ngưỡng confidence 0.472.')"
+                title="Bấm để xem kích thước lớn"
+              >
+                <img 
+                  :src="activeCurve === 'pr' ? '/BoxPR_curve.png' : '/BoxF1_curve.png'" 
+                  :alt="activeCurve === 'pr' ? 'Precision Recall Curve' : 'F1 Score Curve'" 
+                  class="img-fluid rounded border hover-zoom" 
+                  style="max-height: 280px; object-fit: contain; width: 100%;" 
+                />
+              </div>
+              <div class="card-footer bg-light p-2 small">
+                <p class="text-muted text-center mb-0 extra-small" v-if="activeCurve === 'pr'">
+                  Đường cong Precision-Recall cho 7 lớp. mAP@0.50 đạt 91.2% trên toàn bộ các lớp rác thải.
+                </p>
+                <p class="text-muted text-center mb-0 extra-small" v-else>
+                  Đường cong F1-Confidence cho thấy điểm cân bằng F1 tối ưu đạt 0.89 tại ngưỡng ngắt ~0.472.
+                </p>
               </div>
             </div>
           </div>
@@ -448,11 +623,40 @@
         </div>
       </div>
     </div>
+
+    <!-- Lightbox Modal xem ảnh biểu đồ phóng to -->
+    <div 
+      v-if="modalImage.show" 
+      class="modal-backdrop-custom"
+      @click.self="closeModalImage"
+    >
+      <div class="modal-dialog-custom">
+        <div class="modal-content-custom">
+          <div class="modal-header d-flex align-items-center justify-content-between p-3 border-bottom">
+            <h6 class="modal-title fw-bold mb-0 text-dark">
+              <i class="bi bi-image text-success me-2"></i>{{ modalImage.title }}
+            </h6>
+            <div class="d-flex align-items-center gap-2">
+              <a :href="modalImage.src" target="_blank" download class="btn btn-sm btn-outline-success d-flex align-items-center gap-1">
+                <i class="bi bi-download"></i> Tải ảnh gốc
+              </a>
+              <button type="button" class="btn-close" @click="closeModalImage"></button>
+            </div>
+          </div>
+          <div class="modal-body p-3 text-center bg-white" style="max-height: 75vh; overflow: auto;">
+            <img :src="modalImage.src" :alt="modalImage.title" class="img-fluid rounded border shadow-sm" style="max-height: 70vh; object-fit: contain;" />
+          </div>
+          <div class="modal-footer p-3 bg-light border-top">
+            <p class="text-muted small mb-0 w-100 text-center">{{ modalImage.desc }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { Chart, registerables } from 'chart.js';
 import StatCard from '../components/common/StatCard.vue';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
@@ -527,6 +731,28 @@ const displayedEpochs = computed(() => {
   return allEpochs.value.slice(allEpochs.value.length - 15);
 });
 
+const activeCurve = ref('pr');
+const modalImage = ref({
+  show: false,
+  src: '',
+  title: '',
+  desc: ''
+});
+
+function openModalImage(src, title, desc) {
+  modalImage.value = { show: true, src, title, desc };
+}
+
+function closeModalImage() {
+  modalImage.value.show = false;
+}
+
+function onKeyDown(e) {
+  if (e.key === 'Escape' && modalImage.value.show) {
+    closeModalImage();
+  }
+}
+
 async function fetchModelInfo() {
   loading.value = true;
   error.value = '';
@@ -537,12 +763,12 @@ async function fetchModelInfo() {
         ...response.data,
         modelInfo: {
           ...response.data.modelInfo,
-          historyEpochs: response.data.modelInfo?.historyEpochs?.length >= 68 ? response.data.modelInfo.historyEpochs : history68Data
+          historyEpochs: response.data.modelInfo?.historyEpochs?.length >= 10 ? response.data.modelInfo.historyEpochs : history100Data
         }
       };
     }
   } catch (err) {
-    console.warn('Lỗi API getModelInfo, sử dụng dữ liệu cục bộ 68 epochs:', err);
+    console.warn('Lỗi API getModelInfo, sử dụng dữ liệu cục bộ 100 epochs:', err);
   } finally {
     loading.value = false;
     await nextTick();
@@ -790,11 +1016,72 @@ function renderLrChart() {
 
 onMounted(() => {
   fetchModelInfo();
+  window.addEventListener('keydown', onKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeyDown);
 });
 </script>
 
 <style scoped>
 .text-purple {
   color: #8b5cf6 !important;
+}
+
+.btn-xs {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.hover-zoom {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+
+.hover-zoom:hover {
+  transform: scale(1.02);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.extra-small {
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.modal-backdrop-custom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(5px);
+  z-index: 1060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-dialog-custom {
+  max-width: 95vw;
+  width: 950px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content-custom {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
 }
 </style>

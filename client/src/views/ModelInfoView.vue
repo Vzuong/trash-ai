@@ -488,8 +488,17 @@
                 />
               </div>
               <div class="card-footer bg-light p-2 small">
+                <div class="d-flex flex-wrap gap-1 justify-content-center mb-1">
+                  <span class="badge bg-warning-subtle text-dark border border-warning-subtle">Bìa: 3.769</span>
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Pin: 2.583</span>
+                  <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Kim loại: 2.551</span>
+                  <span class="badge bg-info-subtle text-dark border border-info-subtle">Thủy tinh: 2.342</span>
+                  <span class="badge bg-light text-dark border">Nhựa: 2.237</span>
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">Hữu cơ: 2.072</span>
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Giấy: 1.546</span>
+                </div>
                 <p class="text-muted text-center mb-0 extra-small">
-                  Đếm số lượng bounding box thực tế được phân loại đúng và sai trong tập kiểm thử độc lập 8.682 ảnh.
+                  Thống kê số lượng thực tế nhận diện đúng trên 8.682 ảnh kiểm thử (Fold 1).
                 </p>
               </div>
             </div>
@@ -523,7 +532,7 @@
                   <button 
                     type="button"
                     class="btn btn-outline-secondary btn-xs d-flex align-items-center gap-1"
-                    @click="openModalImage(activeCurve === 'pr' ? '/BoxPR_curve.png' : '/BoxF1_curve.png', activeCurve === 'pr' ? 'Đường Cong Precision - Recall (BoxPR_curve.png)' : 'Đường Cong F1 - Confidence (BoxF1_curve.png)', activeCurve === 'pr' ? 'Đường cong Precision-Recall đánh giá độ chính xác tổng thể mAP@0.50 đạt 91.2%.' : 'Đường cong F1-Score đạt đỉnh 0.89 tại ngưỡng confidence 0.472.')"
+                    @click="openModalImage(activeCurve === 'pr' ? '/BoxPR_curve.png' : '/BoxF1_curve.png', activeCurve === 'pr' ? 'Đường Cong Precision - Recall (BoxPR_curve.png)' : 'Đường Cong F1 - Confidence (BoxF1_curve.png)', activeCurve === 'pr' ? 'Đường cong Precision-Recall thực tế: all classes mAP@0.5 đạt 0.912 (Thủy tinh 0.992, Bìa 0.984, Pin 0.982, Hữu cơ 0.930, Kim loại 0.884, Giấy 0.863, Nhựa 0.746).' : 'Đường cong F1-Confidence thực tế: all classes 0.89 tại ngưỡng confidence 0.445.')"
                     title="Phóng to"
                   >
                     <i class="bi bi-arrows-fullscreen"></i>
@@ -535,7 +544,7 @@
               </div>
               <div 
                 class="card-body p-2 text-center bg-white cursor-pointer" 
-                @click="openModalImage(activeCurve === 'pr' ? '/BoxPR_curve.png' : '/BoxF1_curve.png', activeCurve === 'pr' ? 'Đường Cong Precision - Recall (BoxPR_curve.png)' : 'Đường Cong F1 - Confidence (BoxF1_curve.png)', activeCurve === 'pr' ? 'Đường cong Precision-Recall đánh giá độ chính xác tổng thể mAP@0.50 đạt 91.2%.' : 'Đường cong F1-Score đạt đỉnh 0.89 tại ngưỡng confidence 0.472.')"
+                @click="openModalImage(activeCurve === 'pr' ? '/BoxPR_curve.png' : '/BoxF1_curve.png', activeCurve === 'pr' ? 'Đường Cong Precision - Recall (BoxPR_curve.png)' : 'Đường Cong F1 - Confidence (BoxF1_curve.png)', activeCurve === 'pr' ? 'Đường cong Precision-Recall thực tế: all classes mAP@0.5 đạt 0.912 (Thủy tinh 0.992, Bìa 0.984, Pin 0.982, Hữu cơ 0.930, Kim loại 0.884, Giấy 0.863, Nhựa 0.746).' : 'Đường cong F1-Confidence thực tế: all classes 0.89 tại ngưỡng confidence 0.445.')"
                 title="Bấm để xem kích thước lớn"
               >
                 <img 
@@ -547,10 +556,10 @@
               </div>
               <div class="card-footer bg-light p-2 small">
                 <p class="text-muted text-center mb-0 extra-small" v-if="activeCurve === 'pr'">
-                  Đường cong Precision-Recall cho 7 lớp. mAP@0.50 đạt 91.2% trên toàn bộ các lớp rác thải.
+                  Đường cong Precision-Recall thực tế (all classes 0.912 mAP@0.5): Thủy tinh 99.2%, Bìa 98.4%, Pin 98.2%, Hữu cơ 93.0%, Kim loại 88.4%, Giấy 86.3%, Nhựa 74.6%.
                 </p>
                 <p class="text-muted text-center mb-0 extra-small" v-else>
-                  Đường cong F1-Confidence cho thấy điểm cân bằng F1 tối ưu đạt 0.89 tại ngưỡng ngắt ~0.472.
+                  Đường cong F1-Confidence thực nghiệm: Toàn bộ các lớp (all classes) đạt F1 0.89 tại ngưỡng confidence 0.445.
                 </p>
               </div>
             </div>

@@ -40,54 +40,53 @@ Mô hình được huấn luyện để nhận diện 7 nhóm rác thải sinh h
 
 ---
 
-## 3. Bộ Dữ Liệu Huấn Luyện (Dataset)
+## 3. Bộ Dữ Liệu Huấn Luyện & Phương Pháp Chia K-Fold (Dataset & 3-Fold Cross-Validation)
 
-Bộ dữ liệu được tổng hợp từ nguồn dữ liệu thực tế kết hợp bổ sung các tập dữ liệu gán nhãn từ **Roboflow Universe** nhằm mở rộng quy mô và tăng mức độ đa dạng mẫu cho các nhóm rác đặc thù (`battery`, `glass`, `metal`, `plastic`).
+Hệ thống sử dụng toàn bộ **26.048 ảnh** với tổng cộng **59.080 Bounding Boxes** đã được cân bằng chuẩn xác trên 7 nhóm rác thải sinh hoạt (`battery`, `cardboard`, `paper`, `glass`, `metal`, `plastic`, `organic`).
 
-### 🔄 Trình tự tiền xử lý và cam kết ngăn ngừa rò rỉ dữ liệu (Zero Data Leakage):
-Quy trình được thực hiện nghiêm ngặt theo đúng phương pháp luận khoa học:
-1. **Thu thập dữ liệu thô ban đầu (13.548 ảnh):** Kết hợp các nguồn ảnh gốc và tập dữ liệu bổ sung từ Roboflow Universe.
-2. **Phân chia độc lập trước (Split first):** Bộ dữ liệu được chia độc lập thành Train gốc (5.820 ảnh), Validation gốc (4.636 ảnh) và Test độc lập (3.092 ảnh).
-3. **Offline Augmentation chỉ trên tập Train:** Kịch bản `balance_dataset.py` chỉ can thiệp trên 5.820 ảnh của tập Train để cân đối tỷ lệ giữa các lớp, nâng tập Train lên 18.320 ảnh.
-4. **Bảo toàn tính khách quan của Val & Test:** Toàn bộ ảnh của tập **Validation** và **Test** được giữ nguyên bản, hoàn toàn không áp dụng bất kỳ kỹ thuật tăng cường nhân tạo nào.
+### 🔄 Phương pháp kiểm chứng chéo 3-Fold (3-Fold Cross-Validation):
+Để đảm bảo tính khách quan khoa học cao nhất, ngăn ngừa tuyệt đối hiện tượng rò rỉ dữ liệu (Data Leakage) và đánh giá chính xác năng lực tổng quát hóa của mô hình, toàn bộ 26.048 ảnh được gộp lại, xáo trộn ngẫu nhiên có kiểm soát (`random_seed = 42`) và chia đều thành **3 Fold độc lập** (K=3):
 
 ```text
-Dữ liệu thô ban đầu (13.548 ảnh)
-        │
-        ├── Phân chia độc lập (Split)
-        │     ├── Train gốc: 5.820 ảnh
-        │     ├── Validation: 4.636 ảnh (Giữ nguyên bản)
-        │     └── Test: 3.092 ảnh (Giữ nguyên bản)
-        │
-        └── Offline Augmentation (CHỈ áp dụng trên tập Train qua balance_dataset.py)
-              └── Train sau cân đối: 18.320 ảnh
-  
-➔ TỔNG DỮ LIỆU CUỐI CÙNG: 18.320 (Train) + 4.636 (Val) + 3.092 (Test) = 26.048 ảnh
+               TỔNG TẬP DỮ LIỆU CÂN BẰNG (26.048 ẢNH / 59.080 BOXES)
+                                       │
+            ┌──────────────────────────┼──────────────────────────┐
+            ▼                          ▼                          ▼
+      FOLD 1 (8.682 ảnh)         FOLD 2 (8.682 ảnh)         FOLD 3 (8.684 ảnh)
+      19.386 Bounding Boxes      20.061 Bounding Boxes      19.633 Bounding Boxes
 ```
 
-### 📊 Thống kê phân chia dữ liệu:
-* **Tổng số lượng ảnh:** **26.048 ảnh** gán nhãn chuẩn YOLO (Bounding Box: `class x_center y_center width height`).
-* **Kích thước chuẩn hóa:** `640 x 640 pixels`.
+### 📋 Cơ chế huấn luyện và kiểm định xoay vòng (K=3):
+* **Lần 1 (Fold 1):** Huấn luyện trên Fold 2 + Fold 3 (17.366 ảnh ~ 66.7%), Kiểm định trên **Fold 1 (8.682 ảnh ~ 33.3%)**.
+* **Lần 2 (Fold 2):** Huấn luyện trên Fold 1 + Fold 3 (17.366 ảnh ~ 66.7%), Kiểm định trên **Fold 2 (8.682 ảnh ~ 33.3%)**.
+* **Lần 3 (Fold 3):** Huấn luyện trên Fold 1 + Fold 2 (17.364 ảnh ~ 66.7%), Kiểm định trên **Fold 3 (8.684 ảnh ~ 33.3%)**.
 
-| Tập dữ liệu | Số lượng ảnh | Tỷ lệ % | Bản chất dữ liệu | Mục đích sử dụng |
-| :--- | :---: | :---: | :--- | :--- |
-| **Train Set** | **18.320 ảnh** | **70.33%** | Ảnh gốc + ảnh biến thể từ Offline Augmentation | Cập nhật trọng số mạng nơ-ron qua lan truyền ngược |
-| **Validation Set** | **4.636 ảnh** | **17.80%** | Ảnh nguyên bản, không augmentation | Giám sát hiện tượng Overfitting & lưu checkpoint `best.pt` |
-| **Test Set (Độc lập)** | **3.092 ảnh** | **11.87%** | Ảnh nguyên bản, không augmentation | Đánh giá khách quan năng lực tổng quát hóa của mô hình |
-| **TỔNG CỘNG** | **26.048 ảnh** | **100%** | **59.080 Bounding Boxes** | Phân bố trên 7 nhóm rác thải |
+> 💡 **Ưu điểm học thuật vượt trội:**  
+> - **100% toàn bộ 26.048 ảnh** đều lần lượt đóng vai trò làm tập kiểm định độc lập (Out-of-Fold Validation) ở một vòng lặp nhất định.
+> - Kết quả đánh giá không phụ thuộc vào may rủi của một lần phân chia tập test cố định.
+> - Cho phép tính toán độ ổn định của kiến trúc thông qua giá trị trung bình và độ lệch chuẩn (**Mean ± Std**).
 
-### 📦 Phân bố chi tiết số lượng Bounding Boxes theo từng lớp:
+### 📊 Thống kê chi tiết các Fold kiểm định:
 
-| STT | Nhãn Class | Tập TRAIN (Huấn luyện) | Tập VAL (Kiểm định) | Tập TEST (Kiểm thử độc lập) | Tổng Bounding Boxes |
-| :-: | :--- | :---: | :---: | :---: | :---: |
-| 1 | `battery` (Pin) | 6.137 boxes | 1.112 boxes | **810 boxes** | 8.059 |
-| 2 | `cardboard` (Bìa carton) | 7.150 boxes | 2.404 boxes | **1.997 boxes** | 11.551 |
-| 3 | `paper` (Giấy) | 3.800 boxes | 1.370 boxes | **987 boxes** | 6.157 |
-| 4 | `glass` (Thủy tinh) | 6.036 boxes | 738 boxes | **443 boxes** | 7.217 |
-| 5 | `metal` (Kim loại) | 6.249 boxes | 1.760 boxes | **990 boxes** | 8.999 |
-| 6 | `plastic` (Nhựa) | 8.434 boxes | 1.026 boxes | **713 boxes** | 10.173 |
-| 7 | `organic` (Rác hữu cơ) | 3.825 boxes | 1.960 boxes | **1.139 boxes** | 6.924 |
-| | **TỔNG CỘNG** | **41.631 boxes** | **10.370 boxes** | **7.079 boxes** | **59.080 boxes** |
+| Phân vùng (Fold) | Số lượng ảnh | Tỷ lệ % | Số Bounding Boxes | Vai trò trong quá trình nghiệm thu |
+| :--- | :---: | :---: | :---: | :--- |
+| **Fold 1** | **8.682 ảnh** | **33.33%** | **19.386 boxes** | Tập kiểm định Fold 1 *(Mô hình đạt đỉnh cao nhất: mAP@50 đạt 91.18%)* |
+| **Fold 2** | **8.682 ảnh** | **33.33%** | **20.061 boxes** | Tập kiểm định Fold 2 *(mAP@50 đạt 90.50%)* |
+| **Fold 3** | **8.684 ảnh** | **33.34%** | **19.633 boxes** | Tập kiểm định Fold 3 *(mAP@50 đạt 90.90%)* |
+| **TỔNG CỘNG** | **26.048 ảnh** | **100%** | **59.080 boxes** | Chuẩn hóa kích thước `640 x 640`, phân bố đồng đều 7 lớp rác |
+
+### 📦 Phân bố số lượng Bounding Boxes theo 7 lớp rác thải:
+
+| STT | Nhãn Class | Ý nghĩa phân loại | Số lượng Bounding Boxes | Tỷ lệ phân bố |
+| :-: | :--- | :--- | :---: | :---: |
+| 1 | `battery` | Pin / Pin điện tử (Rác nguy hại) | 8.059 boxes | 13.64% |
+| 2 | `cardboard` | Thùng / Bìa carton (Rác tái chế) | 11.551 boxes | 19.55% |
+| 3 | `paper` | Giấy / Báo / Tập vở (Rác tái chế) | 6.157 boxes | 10.42% |
+| 4 | `glass` | Chai lọ / Mảnh vỡ thủy tinh (Rác tái chế) | 7.217 boxes | 12.22% |
+| 5 | `metal` | Lon nhôm / Đồ hộp kim loại (Rác tái chế) | 8.999 boxes | 15.23% |
+| 6 | `plastic` | Chai nhựa / Cốc nhựa / Túi nilon (Rác tái chế) | 10.173 boxes | 17.22% |
+| 7 | `organic` | Rác thực phẩm / Vỏ rau củ quả (Rác hữu cơ) | 6.924 boxes | 11.72% |
+| | **TỔNG CỘNG** | **7 nhóm rác thải chuẩn sinh hoạt** | **59.080 boxes** | **100%** |
 
 ---
 

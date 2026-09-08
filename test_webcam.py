@@ -3,6 +3,7 @@ import time
 
 import cv2
 import torch
+import modules.cbam
 from ultralytics import YOLO
 
 
@@ -10,7 +11,7 @@ from ultralytics import YOLO
 # CONFIG
 # ============================================================
 
-MODEL_PATH = "best.pt"
+MODEL_PATH = "bestfold1.pt" if os.path.exists("bestfold1.pt") else "best.pt"
 
 # Iriun Webcam
 CAMERA_INDEX = 1

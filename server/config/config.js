@@ -87,45 +87,49 @@ const config = {
     }
   ],
 
-  // Model Specs & Training Information (Synced from 68 Epochs Balanced Training)
+  // Model Specs & Training Information (YOLO11s + CBAM Attention - Fold 1 Best Checkpoint)
   modelInfo: {
-    name: 'YOLO11s Trash Classifier',
-    architecture: 'YOLO11s (Ultralytics)',
-    task: 'Object Detection (Phát hiện & Phân loại đối tượng)',
-    version: '2.0.0 (Balanced Dataset 7 Classes)',
+    name: 'YOLO11s-CBAM Trash Classifier (Fold 1)',
+    architecture: 'YOLO11s + CBAM (Channel & Spatial Attention)',
+    task: 'Object Detection (Phát hiện & Phân loại 7 nhóm rác)',
+    version: '3.0.0 (3-Fold Cross-Validation / K=3)',
     datasetSize: 26048,
     trainingSplit: {
-      train: 18320,
-      val: 4636,
-      test: 3092
+      train: 17366,
+      val: 8682,
+      kfold: '3-Fold (K=3, Stratified Shuffle)'
     },
     classesCount: 7,
-    weightsFile: 'best.pt (72.5 MB)',
+    weightsFile: 'best.pt (17.4 MB)',
     trainingConfig: {
-      epochs: 68,
+      epochs: 100,
       batchSize: 32,
       imgSize: '640x640',
-      optimizer: 'AdamW (lr0=0.0005, cos_lr=True)',
-      device: 'Google Colab GPU & Local (NVIDIA GeForce RTX 4060, 12GB RAM)',
-      augmentations: 'Mosaic (1.0), Scale (0.5), Rotation (15.0), Label Smoothing (0.1), Dropout (0.1)'
+      optimizer: 'AdamW (lr0=0.001, weight_decay=0.0005)',
+      device: 'Google Colab GPU (Tesla T4, 16GB VRAM)',
+      patience: 10,
+      augmentations: 'MixUp (0.15), Copy-Paste (0.3), Erasing (0.4), Dropout (0.1)'
     },
     metrics: {
-      precision: 0.9032,
-      recall: 0.8062,
-      map50: 0.8125,
-      map50_95: 0.6659,
-      peakPrecision: 0.9036,
-      peakRecall: 0.79988,
-      peakMap50: 0.86306,
-      peakMap50_95: 0.68607,
-      avgInferenceTime: '~28 ms (GPU)'
+      precision: 0.9305,
+      recall: 0.8563,
+      map50: 0.9118,
+      map50_95: 0.7882,
+      peakPrecision: 0.93295,
+      peakRecall: 0.8563,
+      peakMap50: 0.9118,
+      peakMap50_95: 0.7884,
+      avgInferenceTime: '7.91 ms (~126 FPS GPU T4)',
+      kfoldMeanMap50: '90.87% ± 0.35%',
+      kfoldMeanMap50_95: '78.47% ± 0.29%'
     },
     rationale: [
-      'Bộ dữ liệu được mở rộng và cân bằng hoàn hảo 7 lớp rác thải (18.320 ảnh train, 4.636 ảnh val, 3.092 ảnh test).',
-      'Đạt chỉ số Precision 90.32%, Recall 80.62% và mAP@50 đạt 81.25% trên tập dữ liệu Test độc lập (3.092 ảnh).',
-      'Khắc phục triệt để lỗi nhận nhầm lon kim loại thành pin với Precision lớp Pin (battery) đạt 98.0% và Thủy tinh (glass) đạt 96.4%.'
+      'Tích hợp module chú ý kép CBAM (Channel Attention + Spatial Attention) tại cổ mạng Neck giúp trích xuất nổi bật đặc trưng rác thải.',
+      'Đạt chỉ số mAP@50 ấn tượng 91.18% (0.9118) và mAP@50-95 đạt 78.82% trên tập kiểm thử 8.682 ảnh Fold 1.',
+      'Kiểm định chéo 3-Fold nghiêm ngặt trên toàn bộ 26.048 ảnh đạt mAP@50 trung bình 90.87% ± 0.35% với độ lệch chuẩn cực nhỏ (0.35%).',
+      'Tốc độ suy luận đạt 7.91 ms (~126 FPS trên GPU T4, ~28 ms trên CPU ONNX), đáp ứng hoàn hảo thời gian thực.'
     ],
-    historyEpochs: require('../data/history_epochs_68.json')
+    historyEpochs: require('../data/history_epochs_100.json')
   }
 };
 

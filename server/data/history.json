@@ -1,5 +1,135 @@
 [
   {
+    "id": "rec_718c64b9",
+    "method": "image",
+    "methodName": "Tải ảnh lên",
+    "imageUrl": "/uploads/img_1788513904686_1784817615837_4114547099012506575_g6910242678297279024_f92efdd6ac5d7c9c3facc5a1cc09d392_89563f.jpg",
+    "imageName": "1784817615837_4114547099012506575_g6910242678297279024_f92efdd6ac5d7c9c3facc5a1cc09d392.jpg",
+    "primaryClass": "Rác kim loại",
+    "classCode": "metal",
+    "category": "Rác tái chế",
+    "confidence": 0.974,
+    "confidencePercent": 97,
+    "totalObjects": 3,
+    "inferenceTime": 261,
+    "createdAt": "2026-09-04T09:25:04.962Z",
+    "detections": [
+      {
+        "bbox": {
+          "x1": 1162,
+          "x2": 1991,
+          "y1": 164,
+          "y2": 1006
+        },
+        "bboxNorm": {
+          "x1": 0.4525666994469188,
+          "x2": 0.77531846661434,
+          "y1": 0.08494707307587779,
+          "y2": 0.5222243391217225
+        },
+        "binColor": "Thùng rác màu xanh dương (Rác tái chế)",
+        "category": "Rác tái chế",
+        "classCode": "metal",
+        "className": "Rác kim loại",
+        "color": "#64748b",
+        "confidence": 0.974,
+        "confidencePercent": 97,
+        "icon": "bi-hammer",
+        "id": 1,
+        "instruction": "Ép xẹp lon nhôm/hộp kim loại sau khi đã rửa sạch đồ bên trong để tiết kiệm không gian lưu trữ."
+      },
+      {
+        "bbox": {
+          "x1": 1066,
+          "x2": 1756,
+          "y1": 1021,
+          "y2": 1683
+        },
+        "bboxNorm": {
+          "x1": 0.4150765202127142,
+          "x2": 0.6838927937445239,
+          "y1": 0.5301912967289719,
+          "y2": 0.8740485994491498
+        },
+        "binColor": "Thùng rác màu xanh dương (Rác tái chế)",
+        "category": "Rác tái chế",
+        "classCode": "glass",
+        "className": "Rác thủy tinh",
+        "color": "#06b6d4",
+        "confidence": 0.972,
+        "confidencePercent": 97,
+        "icon": "bi-cup-straw",
+        "id": 2,
+        "instruction": "Rửa sạch chai lọ thủy tinh, phân loại riêng đồ vỡ để đảm bảo an toàn cho nhân viên thu gom."
+      },
+      {
+        "bbox": {
+          "x1": 0,
+          "x2": 1027,
+          "y1": 218,
+          "y2": 1545
+        },
+        "bboxNorm": {
+          "x1": 0.0001829266432104081,
+          "x2": 0.40005279255804616,
+          "y1": 0.1130212722413884,
+          "y2": 0.8022905232874157
+        },
+        "binColor": "Thùng rác màu vàng/xanh dương (Rác tái chế)",
+        "category": "Rác tái chế",
+        "classCode": "cardboard",
+        "className": "Rác bìa carton",
+        "color": "#d97706",
+        "confidence": 0.97,
+        "confidencePercent": 97,
+        "icon": "bi-box-seam",
+        "id": 3,
+        "instruction": "Gấp phẳng thùng carton, giữ sạch và khô ráo để chuyển đến các nhà máy tái chế giấy."
+      }
+    ]
+  },
+  {
+    "id": "rec_d1188665",
+    "method": "image",
+    "methodName": "Tải ảnh lên",
+    "imageUrl": "/uploads/img_1788513894130_z8026081093195_580aaf2fdc933db2dcc26181bb19aef3_5ff66a.jpg",
+    "imageName": "z8026081093195_580aaf2fdc933db2dcc26181bb19aef3.jpg",
+    "primaryClass": "Rác bìa carton",
+    "classCode": "cardboard",
+    "category": "Rác tái chế",
+    "confidence": 0.709,
+    "confidencePercent": 71,
+    "totalObjects": 1,
+    "inferenceTime": 433,
+    "createdAt": "2026-09-04T09:24:54.584Z",
+    "detections": [
+      {
+        "bbox": {
+          "x1": 1283,
+          "x2": 1704,
+          "y1": 631,
+          "y2": 1234
+        },
+        "bboxNorm": {
+          "x1": 0.6681886037190755,
+          "x2": 0.8875710805257161,
+          "y1": 0.24633455276489258,
+          "y2": 0.4821954250335693
+        },
+        "binColor": "Thùng rác màu vàng/xanh dương (Rác tái chế)",
+        "category": "Rác tái chế",
+        "classCode": "cardboard",
+        "className": "Rác bìa carton",
+        "color": "#d97706",
+        "confidence": 0.709,
+        "confidencePercent": 71,
+        "icon": "bi-box-seam",
+        "id": 1,
+        "instruction": "Gấp phẳng thùng carton, giữ sạch và khô ráo để chuyển đến các nhà máy tái chế giấy."
+      }
+    ]
+  },
+  {
     "id": "rec_plastic_101",
     "method": "image",
     "methodName": "Tải ảnh lên",
@@ -216,7 +346,7 @@
     "confidence": 0.945,
     "confidencePercent": 95,
     "totalObjects": 1,
-    "inferenceTime": 19.0,
+    "inferenceTime": 19,
     "createdAt": "2026-08-26T13:56:56.872000Z",
     "detections": [
       {

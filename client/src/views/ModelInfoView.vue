@@ -4,16 +4,16 @@
     <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4 pb-2 border-bottom">
       <div>
         <h2 class="fw-bold text-dark mb-1">
-          <i class="bi bi-cpu-fill text-success me-2"></i>Mô Hình AI YOLO11
+          <i class="bi bi-cpu-fill text-success me-2"></i>Mô Hình AI YOLO11s-CBAM (Fold 1)
         </h2>
         <p class="text-muted small mb-0">
-          Thông số kỹ thuật, cấu hình siêu tham số và biểu đồ đánh giá định lượng qua {{ modelData.modelInfo?.trainingConfig?.epochs || 68 }} Epoch huấn luyện trên tập dữ liệu cân bằng 7 lớp.
+          Thông số kỹ thuật, cấu hình siêu tham số và biểu đồ đánh giá định lượng qua {{ modelData.modelInfo?.trainingConfig?.epochs || 100 }} Epoch huấn luyện trên tập dữ liệu cân bằng 7 lớp.
         </p>
       </div>
 
       <div class="d-flex flex-wrap align-items-center gap-2">
         <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
-          <i class="bi bi-check-circle-fill me-1"></i> Trọng số: {{ modelData.modelInfo?.weightsFile || 'best.pt (72.5 MB)' }}
+          <i class="bi bi-check-circle-fill me-1"></i> Trọng số: {{ modelData.modelInfo?.weightsFile || 'best.pt (17.4 MB)' }}
         </span>
         <button 
           class="btn btn-sm btn-outline-success d-flex align-items-center gap-1 shadow-sm px-3 py-1"
@@ -40,12 +40,12 @@
     <ErrorState v-else-if="error" :message="error" @retry="fetchModelInfo" />
 
     <div v-else>
-      <!-- Key Model Performance Cards (Đánh giá trên tập Test độc lập - 3.092 ảnh) -->
+      <!-- Key Model Performance Cards (Đánh giá trên tập Validation Fold 1 - 8.682 ảnh) -->
       <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
           <StatCard 
             title="mAP @ 0.50" 
-            value="81.3" 
+            :value="((modelData.modelInfo?.metrics?.map50 || 0.9118) * 100).toFixed(1)" 
             unit="%"
             icon="bi-trophy-fill" 
             icon-bg="#ecfdf5" 
@@ -55,7 +55,7 @@
         <div class="col-6 col-md-3">
           <StatCard 
             title="Precision" 
-            value="90.3" 
+            :value="((modelData.modelInfo?.metrics?.precision || 0.9305) * 100).toFixed(1)" 
             unit="%"
             icon="bi-bullseye" 
             icon-bg="#eff6ff" 
@@ -65,7 +65,7 @@
         <div class="col-6 col-md-3">
           <StatCard 
             title="Recall" 
-            value="80.6" 
+            :value="((modelData.modelInfo?.metrics?.recall || 0.8563) * 100).toFixed(1)" 
             unit="%"
             icon="bi-funnel-fill" 
             icon-bg="#fffbeb" 
@@ -75,7 +75,7 @@
         <div class="col-6 col-md-3">
           <StatCard 
             title="mAP @ 0.50:0.95" 
-            value="66.6" 
+            :value="((modelData.modelInfo?.metrics?.map50_95 || 0.7882) * 100).toFixed(1)" 
             unit="%"
             icon="bi-award-fill" 
             icon-bg="#f5f3ff" 
@@ -203,7 +203,7 @@
                 </h6>
                 <span class="text-muted small">Warmup ban đầu & Cosine Annealing decay</span>
               </div>
-              <span class="badge bg-info-subtle text-info border border-info-subtle">AdamW lr0=0.0005 (Cosine)</span>
+              <span class="badge bg-info-subtle text-info border border-info-subtle">AdamW lr0=0.001 (Plateau)</span>
             </div>
 
             <div class="position-relative" style="min-height: 220px; height: 220px;">
@@ -224,11 +224,11 @@
                 <tbody>
                   <tr>
                     <td class="bg-light text-muted fw-semibold" style="width: 40%;">Mô hình sử dụng</td>
-                    <td class="fw-bold text-dark">YOLO11s (Ultralytics Balanced Fine-tuned)</td>
+                    <td class="fw-bold text-dark">YOLO11s + CBAM Attention (Fold 1 Best Checkpoint)</td>
                   </tr>
                   <tr>
                     <td class="bg-light text-muted fw-semibold">File trọng số tối ưu</td>
-                    <td><span class="badge bg-success-subtle text-success border border-success-subtle">{{ modelData.modelInfo?.weightsFile || 'best.pt (72.5 MB)' }}</span></td>
+                    <td><span class="badge bg-success-subtle text-success border border-success-subtle">{{ modelData.modelInfo?.weightsFile || 'best.pt (17.4 MB)' }}</span></td>
                   </tr>
                   <tr>
                     <td class="bg-light text-muted fw-semibold">Nhiệm vụ (Task)</td>
@@ -241,14 +241,14 @@
                   <tr>
                     <td class="bg-light text-muted fw-semibold">Phân chia dữ liệu</td>
                     <td>
-                      <span class="badge bg-light text-dark border me-1">Train: {{ modelData.modelInfo?.trainingSplit?.train?.toLocaleString() || '18,320' }}</span>
-                      <span class="badge bg-light text-dark border me-1">Val: {{ modelData.modelInfo?.trainingSplit?.val?.toLocaleString() || '4,636' }}</span>
-                      <span class="badge bg-light text-dark border">Test: {{ modelData.modelInfo?.trainingSplit?.test?.toLocaleString() || '3,092' }}</span>
+                      <span class="badge bg-light text-dark border me-1">Train: 17,366</span>
+                      <span class="badge bg-light text-dark border me-1">Val (Fold 1): 8,682</span>
+                      <span class="badge bg-light text-dark border">Phương pháp: 3-Fold CV</span>
                     </td>
                   </tr>
                   <tr>
                     <td class="bg-light text-muted fw-semibold">Số vòng học (Epochs)</td>
-                    <td>{{ modelData.modelInfo?.trainingConfig?.epochs || 68 }} Epochs (Hội tụ toàn diện)</td>
+                    <td>{{ modelData.modelInfo?.trainingConfig?.epochs || 100 }} Epochs (Hội tụ toàn diện)</td>
                   </tr>
                   <tr>
                     <td class="bg-light text-muted fw-semibold">Batch Size / Img Size</td>
@@ -256,7 +256,7 @@
                   </tr>
                   <tr>
                     <td class="bg-light text-muted fw-semibold">Tăng cường dữ liệu</td>
-                    <td class="small">Mosaic (1.0), Scale (0.5), Rotation (15.0), Label Smoothing (0.1), Dropout (0.1)</td>
+                    <td class="small">MixUp (0.15), Copy-Paste (0.3), Erasing (0.4), Dropout (0.1)</td>
                   </tr>
                   <tr>
                     <td class="bg-light text-muted fw-semibold">Phần cứng huấn luyện</td>
@@ -269,21 +269,21 @@
         </div>
       </div>
 
-      <!-- Detailed 68 Epochs Table -->
+      <!-- Detailed Epochs Table -->
       <div class="eco-card p-3 p-md-4 mb-4">
         <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2 mb-3">
           <div>
             <h6 class="fw-bold mb-0 text-dark">
-              <i class="bi bi-table text-success me-1"></i>Bảng Chi Tiết Kết Quả Huấn Luyện Qua {{ modelData.modelInfo?.historyEpochs?.length || 68 }} Epochs
+              <i class="bi bi-table text-success me-1"></i>Bảng Chi Tiết Kết Quả Huấn Luyện Qua {{ modelData.modelInfo?.historyEpochs?.length || 100 }} Epochs
             </h6>
-            <span class="text-muted small">Dữ liệu định lượng trích xuất trực tiếp từ kết quả huấn luyện (results_merged_68epochs.csv)</span>
+            <span class="text-muted small">Dữ liệu định lượng trích xuất trực tiếp từ kết quả huấn luyện (results.csv - Fold 1)</span>
           </div>
           <button 
             class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
             @click="showFullTable = !showFullTable"
           >
             <i :class="showFullTable ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
-            {{ showFullTable ? 'Thu gọn' : `Xem toàn bộ ${modelData.modelInfo?.historyEpochs?.length || 68} Epochs` }}
+            {{ showFullTable ? 'Thu gọn' : `Xem toàn bộ ${modelData.modelInfo?.historyEpochs?.length || 100} Epochs` }}
           </button>
         </div>
 
@@ -309,13 +309,13 @@
                 v-for="ep in displayedEpochs" 
                 :key="ep.epoch"
                 :class="{ 
-                  'table-success fw-bold': ep.epoch === 28 || ep.epoch === 56,
-                  'table-warning': ep.epoch === 68 
+                  'table-success fw-bold': ep.epoch === 100,
+                  'table-warning': ep.epoch === 99 
                 }"
               >
                 <td>
-                  <span class="badge" :class="ep.epoch === 28 ? 'bg-success' : (ep.epoch === 56 ? 'bg-primary' : 'bg-light text-dark border')">
-                    #{{ ep.epoch }} {{ ep.epoch === 28 ? '⭐ Best mAP50' : (ep.epoch === 56 ? '🎯 Best mAP50-95' : '') }}
+                  <span class="badge" :class="ep.epoch === 100 ? 'bg-success' : 'bg-light text-dark border'">
+                    #{{ ep.epoch }} {{ ep.epoch === 100 ? '⭐ Best Checkpoint' : '' }}
                   </span>
                 </td>
                 <td>{{ ep.boxLoss?.toFixed(4) }}</td>
@@ -414,33 +414,33 @@
           <div class="eco-card h-100 p-3 p-md-4">
             <h6 class="fw-bold mb-3 d-flex align-items-center gap-2 text-dark">
               <i class="bi bi-check2-circle text-success"></i>
-              Lý Do Lựa Chọn Kiến Trúc YOLO11s (68 Epochs)
+              Lý Do Lựa Chọn Kiến Trúc YOLO11s + CBAM (100 Epochs)
             </h6>
             <div class="d-flex flex-column gap-3">
               <div class="p-3 bg-light rounded-3 border">
                 <div class="d-flex align-items-center gap-2 mb-1 text-success fw-bold small">
-                  <i class="bi bi-lightning-charge-fill"></i> Tốc độ suy luận siêu tốc (~28 ms/frame)
+                  <i class="bi bi-lightning-charge-fill"></i> Tốc độ suy luận siêu tốc (7.91 ms/frame GPU, ~28 ms CPU ONNX)
                 </div>
                 <p class="small text-muted mb-0">
-                  Đáp ứng trọn vẹn yêu cầu nhận diện Real-time trên Webcam 30 FPS và camera giám sát tại nguồn.
+                  Đạt ~126 FPS trên GPU T4 và đáp ứng mượt mà Real-time trên trình duyệt / CPU của nền tảng Cloud Render.
                 </p>
               </div>
 
               <div class="p-3 bg-light rounded-3 border">
                 <div class="d-flex align-items-center gap-2 mb-1 text-primary fw-bold small">
-                  <i class="bi bi-bullseye"></i> Chỉ số Precision đạt 90.32% (mAP@50 đạt 81.25% trên tập Test)
+                  <i class="bi bi-bullseye"></i> Độ chính xác vượt trội (mAP@50 đạt 91.18%, mAP@50-95 đạt 78.82%)
                 </div>
                 <p class="small text-muted mb-0">
-                  Khả năng phát hiện và định vị chính xác vị trí 7 loại rác thải phổ biến ngay cả trong điều kiện ánh sáng thay đổi.
+                  Cơ chế chú ý kênh và không gian CBAM giúp mô hình bắt biên dạng và phân biệt chính xác 7 loại rác thải phức tạp.
                 </p>
               </div>
 
               <div class="p-3 bg-light rounded-3 border">
                 <div class="d-flex align-items-center gap-2 mb-1 text-warning text-dark fw-bold small">
-                  <i class="bi bi-shield-check"></i> Khắc phục triệt để lỗi nhận nhầm Pin (Precision lớp Pin đạt 98.0%)
+                  <i class="bi bi-shield-check"></i> Độ ổn định cao qua kiểm định 3-Fold (mAP@50: 90.87% ± 0.35%)
                 </div>
                 <p class="small text-muted mb-0">
-                  Nhờ tập dữ liệu cân bằng 18.320 ảnh và kỹ thuật Data Augmentation, AI phân biệt độc lập 100% giữa lon kim loại và rác pin.
+                  Kiểm định chéo 3-Fold trên toàn bộ 26.048 ảnh khẳng định mô hình không bị quá khớp và tổng quát hóa xuất sắc.
                 </p>
               </div>
             </div>
@@ -458,7 +458,7 @@ import StatCard from '../components/common/StatCard.vue';
 import LoadingSpinner from '../components/common/LoadingSpinner.vue';
 import ErrorState from '../components/common/ErrorState.vue';
 import apiService from '../services/api';
-import history68Data from '../assets/data/history_epochs_68.json';
+import history100Data from '../assets/data/history_epochs_100.json';
 
 Chart.register(...registerables);
 
@@ -468,27 +468,27 @@ const reloadMessage = ref('');
 const error = ref('');
 const modelData = ref({
   modelInfo: {
-    name: 'YOLO11s Trash Classifier',
-    weightsFile: 'best.pt (72.5 MB)',
+    name: 'YOLO11s-CBAM Trash Classifier (Fold 1)',
+    weightsFile: 'best.pt (17.4 MB)',
     datasetSize: 26048,
-    trainingSplit: { train: 18320, val: 4636, test: 3092 },
+    trainingSplit: { train: 17366, val: 8682, kfold: '3-Fold CV' },
     trainingConfig: {
-      epochs: 68,
+      epochs: 100,
       batchSize: 32,
       imgSize: '640x640',
-      optimizer: 'AdamW (lr0=0.0005, cos_lr=True)'
+      optimizer: 'AdamW (lr0=0.001, weight_decay=0.0005)'
     },
     metrics: {
-      precision: 0.89209,
-      recall: 0.79566,
-      map50: 0.85925,
-      map50_95: 0.68607,
-      peakPrecision: 0.9036,
-      peakRecall: 0.7999,
-      peakMap50: 0.8631,
-      peakMap50_95: 0.68607
+      precision: 0.9305,
+      recall: 0.8563,
+      map50: 0.9118,
+      map50_95: 0.7882,
+      peakPrecision: 0.93295,
+      peakRecall: 0.8563,
+      peakMap50: 0.9118,
+      peakMap50_95: 0.7884
     },
-    historyEpochs: history68Data
+    historyEpochs: history100Data
   },
   classes: [
     { id: 0, code: 'PIN', name: 'Pin / Pin điện tử', category: 'Nguy hại', color: '#dc2626' },
@@ -515,17 +515,16 @@ let lrChart = null;
 
 const allEpochs = computed(() => {
   const epochs = modelData.value.modelInfo?.historyEpochs;
-  return epochs && epochs.length >= 68 ? epochs : history68Data;
+  return epochs && epochs.length > 0 ? epochs : history100Data;
 });
 
 const bestEpoch = computed(() => {
-  // Epoch #56 is the exact best.pt checkpoint with peak fitness 0.68607
-  return allEpochs.value.find((e) => e.epoch === 56) || allEpochs.value[allEpochs.value.length - 1];
+  return allEpochs.value.find((e) => e.epoch === 100) || allEpochs.value[allEpochs.value.length - 1];
 });
 
 const displayedEpochs = computed(() => {
   if (showFullTable.value) return allEpochs.value;
-  return allEpochs.value.slice(0, 15);
+  return allEpochs.value.slice(allEpochs.value.length - 15);
 });
 
 async function fetchModelInfo() {

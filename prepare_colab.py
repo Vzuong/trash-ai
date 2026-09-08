@@ -24,16 +24,18 @@ def generate_perfect_colab_notebook(output_path="train_trash_yolo11_colab.ipynb"
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "# 🚀 HUẤN LUYỆN YOLOV11 100 EPOCHS TRÊN GOOGLE COLAB (GPU T4)\n",
-                    "Dự án phân loại 7 lớp rác: `battery`, `cardboard`, `paper`, `glass`, `metal`, `plastic`, `organic`.\n",
-                    "Tự động giải nén `trash (3).zip` từ Google Drive, huấn luyện 100 Epochs với Data Augmentation chống Overfitting và lưu `best.pt` về Drive."
+                    "# Training YOLO11 on Balanced Trash Dataset\n",
+                    "7-class trash detection: battery, cardboard, paper, glass, metal, plastic, organic.\n",
+                    "- Dataset: Trash_dataset_balanced (26,048 images: 18,320 train, 4,636 val, 3,092 test).\n",
+                    "- Default model: YOLO11s (can be changed to yolo11n or yolo11m in cell 5).\n",
+                    "- Checkpoints and logs are saved to Google Drive."
                 ]
             },
             {
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "### 📌 BƯỚC 1: Kiểm tra GPU & Cài đặt thư viện Ultralytics YOLOv11"
+                    "### 1. GPU Check & Setup"
                 ]
             },
             {
@@ -42,18 +44,15 @@ def generate_perfect_colab_notebook(output_path="train_trash_yolo11_colab.ipynb"
                 "metadata": {},
                 "outputs": [],
                 "source": [
-                    "# 1. Kiểm tra card GPU T4 của Google Colab\n",
                     "!nvidia-smi\n",
-                    "\n",
-                    "# 2. Cài đặt thư viện Ultralytics mới nhất\n",
-                    "!pip install -q ultralytics"
+                    "!pip install -q ultralytics pandas"
                 ]
             },
             {
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "### 📌 BƯỚC 2: Kết nối Google Drive để đọc `trash (3).zip`"
+                    "### 2. Mount Google Drive"
                 ]
             },
             {
@@ -70,7 +69,7 @@ def generate_perfect_colab_notebook(output_path="train_trash_yolo11_colab.ipynb"
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "### 📌 BƯỚC 3: Tự động tìm và giải nén `trash (3).zip` vào ổ cứng Colab"
+                    "### 3. Extract Dataset"
                 ]
             },
             {
@@ -82,45 +81,25 @@ def generate_perfect_colab_notebook(output_path="train_trash_yolo11_colab.ipynb"
                     "import os\n",
                     "import glob\n",
                     "import zipfile\n",
-                    "\n",
-                    "# Tìm file zip trên Google Drive\n",
-                    "possible_zip_names = [\n",
-                    "    '/content/drive/MyDrive/trash (3).zip',\n",
-                    "    '/content/drive/MyDrive/trash(3).zip',\n",
-                    "    '/content/drive/MyDrive/trash (2).zip',\n",
-                    "    '/content/drive/MyDrive/trash (1).zip',\n",
-                    "    '/content/drive/MyDrive/trash.zip',\n",
-                    "    '/content/drive/MyDrive/Trash_dataset_balanced.zip'\n",
-                    "]\n",
-                    "\n",
-                    "zip_file = None\n",
-                    "for p in possible_zip_names:\n",
-                    "    if os.path.exists(p):\n",
-                    "        zip_file = p\n",
-                    "        break\n",
-                    "\n",
-                    "if not zip_file:\n",
-                    "    # Tìm kiếm tự động bất kỳ file zip nào có chữ trash trong MyDrive\n",
-                    "    found = glob.glob('/content/drive/MyDrive/*trash*.zip') + glob.glob('/content/drive/MyDrive/*Trash*.zip')\n",
-                    "    if found:\n",
-                    "        zip_file = found[0]\n",
+                    "zip_file = '/content/drive/MyDrive/Trash (3).zip'\n",
+                    "if not os.path.exists(zip_file):\n",
+                    "    zip_file = '/content/drive/MyDrive/trash (3).zip'\n",
                     "\n",
                     "if zip_file and os.path.exists(zip_file):\n",
-                    "    print(f'⚡ Đã tìm thấy: {zip_file}')\n",
-                    "    print('📦 Đang giải nén siêu tốc vào /content/trash_project...')\n",
+                    "    print(f'Extracting: {zip_file} to /content/trash_project...')\n",
                     "    with zipfile.ZipFile(zip_file, 'r') as z:\n",
                     "        z.extractall('/content/trash_project')\n",
-                    "    print('✅ Giải nén hoàn tất!')\n",
+                    "    print('Extraction complete.')\n",
                     "else:\n",
-                    "    print('❌ Không tìm thấy file zip! Các file zip hiện có trong Drive của bạn:')\n",
-                    "    print(glob.glob('/content/drive/MyDrive/*.zip'))"
+                    "    print('Error: Zip file not found on Google Drive.')\n",
+                    "    print('Available zip files:', glob.glob('/content/drive/MyDrive/*.zip'))"
                 ]
             },
             {
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "### 📌 BƯỚC 4: Tự động định vị thư mục Dataset & Tạo `data.yaml` chuẩn"
+                    "### 4. Locate Balanced Dataset & Create data_balanced.yaml"
                 ]
             },
             {
@@ -129,19 +108,18 @@ def generate_perfect_colab_notebook(output_path="train_trash_yolo11_colab.ipynb"
                 "metadata": {},
                 "outputs": [],
                 "source": [
-                    "# Tìm thư mục chứa train/images\n",
-                    "dataset_root = None\n",
-                    "for root, dirs, files in os.walk('/content/trash_project'):\n",
-                    "    if 'train' in dirs and os.path.exists(os.path.join(root, 'train', 'images')):\n",
-                    "        dataset_root = root\n",
-                    "        break\n",
+                    "import os\n",
+                    "import glob\n",
                     "\n",
-                    "if not dataset_root:\n",
-                    "    dataset_root = '/content/trash_project'\n",
+                    "dataset_root = '/content/trash_project/Trash/Trash_dataset_balanced'\n",
+                    "if not os.path.exists(dataset_root):\n",
+                    "    for root, dirs, files in os.walk('/content/trash_project'):\n",
+                    "        if os.path.basename(root) == 'Trash_dataset_balanced':\n",
+                    "            dataset_root = root\n",
+                    "            break\n",
                     "\n",
-                    "print(f'📍 Thư mục Dataset gốc: {dataset_root}')\n",
+                    "print(f'Dataset path: {dataset_root}')\n",
                     "\n",
-                    "# Tạo file data.yaml trên Colab trỏ đúng thư mục\n",
                     "yaml_content = f\"\"\"\n",
                     "path: {dataset_root}\n",
                     "train: train/images\n",
@@ -159,17 +137,15 @@ def generate_perfect_colab_notebook(output_path="train_trash_yolo11_colab.ipynb"
                     "  6: organic\n",
                     "\"\"\"\n",
                     "\n",
-                    "with open('/content/data.yaml', 'w') as f:\n",
-                    "    f.write(yaml_content.strip())\n",
-                    "\n",
-                    "print('✅ Đã tạo /content/data.yaml thành công!')"
+                    "with open('/content/data_balanced.yaml', 'w') as f:\n",
+                    "    f.write(yaml_content.strip())\n"
                 ]
             },
             {
                 "cell_type": "markdown",
                 "metadata": {},
                 "source": [
-                    "### 📌 BƯỚC 5: Huấn luyện YOLO11s 100 Epochs + Data Augmentation Chống Overfitting"
+                    "### 5. Training Model (Change model_name to 'yolo11n' or 'yolo11m' if needed)"
                 ]
             },
             {
@@ -178,66 +154,92 @@ def generate_perfect_colab_notebook(output_path="train_trash_yolo11_colab.ipynb"
                 "metadata": {},
                 "outputs": [],
                 "source": [
+                    "import os\n",
+                    "import time\n",
                     "from ultralytics import YOLO\n",
                     "\n",
-                    "# Load pre-trained base weights YOLO11s\n",
-                    "model = YOLO('yolo11s.pt')\n",
+                    "# Select model: 'yolo11s' (default), 'yolo11n', or 'yolo11m'\n",
+                    "model_name = 'yolo11s'\n",
+                    "weights = f'{model_name}.pt'\n",
+                    "batch_size = 32\n",
+                    "epochs = 100\n",
+                    "patience = 10\n",
                     "\n",
-                    "# Bắt đầu Huấn luyện 100 Epochs\n",
-                    "results = model.train(\n",
-                    "    data='/content/data.yaml',\n",
-                    "    epochs=100,\n",
+                    "drive_project = '/content/drive/MyDrive/Trash_YOLO11_Balanced_Runs'\n",
+                    "exp_name = f'trash_{model_name}_balanced'\n",
+                    "os.makedirs(drive_project, exist_ok=True)\n",
+                    "\n",
+                    "def on_fit_epoch_end(trainer):\n",
+                    "    if not hasattr(trainer, 'stopper') or trainer.stopper is None:\n",
+                    "        return\n",
+                    "    delta = trainer.epoch - trainer.stopper.best_epoch\n",
+                    "    if delta == 5 and not getattr(trainer, '_lr_reduced_on_plateau', False):\n",
+                    "        trainer._lr_reduced_on_plateau = True\n",
+                    "        if hasattr(trainer, 'scheduler') and hasattr(trainer.scheduler, 'base_lrs'):\n",
+                    "            trainer.scheduler.base_lrs = [b * 0.5 for b in trainer.scheduler.base_lrs]\n",
+                    "        curr_lr = trainer.optimizer.param_groups[0]['lr'] if trainer.optimizer.param_groups else 0.0\n",
+                    "        print('\\n' + '-' * 75)\n",
+                    "        print(f'[ReduceLROnPlateau] 5 epochs without improvement. Reducing learning rate to: {curr_lr:.6f}')\n",
+                    "        print('-' * 75 + '\\n')\n",
+                    "    elif delta < 5:\n",
+                    "        trainer._lr_reduced_on_plateau = False\n",
+                    "\n",
+                    "print(f'Starting training: {model_name.upper()} (weights={weights}, batch={batch_size}, epochs={epochs})')\n",
+                    "model = YOLO(weights)\n",
+                    "model.add_callback('on_fit_epoch_end', on_fit_epoch_end)\n",
+                    "\n",
+                    "t_start = time.time()\n",
+                    "train_results = model.train(\n",
+                    "    data='/content/data_balanced.yaml',\n",
+                    "    epochs=epochs,\n",
+                    "    batch=batch_size,\n",
                     "    imgsz=640,\n",
-                    "    batch=16,\n",
                     "    device=0,\n",
-                    "    workers=4,\n",
+                    "    workers=2,\n",
                     "    optimizer='AdamW',\n",
                     "    lr0=0.001,\n",
-                    "    lrf=0.01,\n",
-                    "    patience=30,\n",
-                    "    # --- CHỐNG OVERFITTING & TĂNG CƯỜNG DỮ LIỆU ---\n",
+                    "    patience=patience,\n",
+                    "    cos_lr=True,\n",
                     "    weight_decay=0.0005,\n",
                     "    dropout=0.1,\n",
-                    "    label_smoothing=0.1,\n",
-                    "    mosaic=1.0,\n",
                     "    mixup=0.15,\n",
                     "    copy_paste=0.3,\n",
-                    "    scale=0.5,\n",
-                    "    degrees=15.0,\n",
-                    "    fliplr=0.5,\n",
-                    "    close_mosaic=15,\n",
-                    "    # --- LƯU TRỰC TIẾP VÀO GOOGLE DRIVE ---\n",
-                    "    project='/content/drive/MyDrive/Trash_YOLO11_Project',\n",
-                    "    name='trash_yolo11s_100epochs',\n",
+                    "    erasing=0.4,\n",
+                    "    project=drive_project,\n",
+                    "    name=exp_name,\n",
                     "    save=True,\n",
-                    "    plots=True,\n",
-                    "    val=True\n",
+                    "    verbose=True\n",
+                    ")\n",
+                    "duration_min = round((time.time() - t_start) / 60, 1)\n",
+                    "print(f'Training finished in {duration_min} minutes.')\n",
+                    "\n",
+                    "# Evaluation on test set\n",
+                    "best_weights_path = os.path.join(drive_project, exp_name, 'weights', 'best.pt')\n",
+                    "print(f'\\nEvaluating on test set: {best_weights_path}')\n",
+                    "eval_model = YOLO(best_weights_path)\n",
+                    "test_res = eval_model.val(\n",
+                    "    data='/content/data_balanced.yaml',\n",
+                    "    split='test',\n",
+                    "    imgsz=640,\n",
+                    "    device=0,\n",
+                    "    verbose=True\n",
                     ")\n",
                     "\n",
-                    "print('🎉 HUẤN LUYỆN 100 EPOCHS HOÀN TẤT!')\n",
-                    "print('Trọng số tốt nhất đã được lưu tại: /content/drive/MyDrive/Trash_YOLO11_Project/trash_yolo11s_100epochs/weights/best.pt')"
-                ]
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "### 📌 BƯỚC 6: Đánh giá Model trên tập Test"
-                ]
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "# Đánh giá mAP trên tập test\n",
-                    "best_path = '/content/drive/MyDrive/Trash_YOLO11_Project/trash_yolo11s_100epochs/weights/best.pt'\n",
-                    "eval_model = YOLO(best_path)\n",
-                    "metrics = eval_model.val(data='/content/data.yaml', split='test')\n",
+                    "params_count = round(sum(p.numel() for p in eval_model.model.parameters()) / 1e6, 2)\n",
+                    "print('\\n' + '-' * 65)\n",
+                    "print(f'Results for {model_name.upper()} on Test Set:')\n",
+                    "print('-' * 65)\n",
+                    "print(f'  Parameters : {params_count}M')\n",
+                    "print(f'  Precision  : {test_res.box.mp:.4f} ({test_res.box.mp*100:.2f}%)')\n",
+                    "print(f'  Recall     : {test_res.box.mr:.4f} ({test_res.box.mr*100:.2f}%)')\n",
+                    "print(f'  mAP@50     : {test_res.box.map50:.4f} ({test_res.box.map50*100:.2f}%)')\n",
+                    "print(f'  mAP@50-95  : {test_res.box.map:.4f} ({test_res.box.map*100:.2f}%)')\n",
+                    "print(f'  Latency    : {test_res.speed.get(\"inference\", 0.0):.2f} ms')\n",
+                    "print('-' * 65)\n",
                     "\n",
-                    "print(f'🏆 mAP@50    : {metrics.box.map50:.4f}')\n",
-                    "print(f'🏆 mAP@50-95 : {metrics.box.map:.4f}')"
+                    "print('\\nPer-class mAP50-95:')\n",
+                    "for i, c in enumerate(test_res.names.values()):\n",
+                    "    print(f'  {c:<12}: {test_res.box.maps[i]:.4f}')"
                 ]
             }
         ]
@@ -245,7 +247,7 @@ def generate_perfect_colab_notebook(output_path="train_trash_yolo11_colab.ipynb"
 
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(notebook, f, indent=2, ensure_ascii=False)
-    print(f"✅ Đã tạo file Colab Notebook: {output_path}")
+    print(f"Generated clean notebook: {output_path}")
 
 if __name__ == '__main__':
     generate_perfect_colab_notebook()

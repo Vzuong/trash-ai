@@ -3,6 +3,7 @@ import sys
 import argparse
 import cv2
 import torch
+import modules.cbam
 from ultralytics import YOLO
 
 def main():

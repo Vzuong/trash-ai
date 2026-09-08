@@ -37,6 +37,7 @@ RUN npm install --production
 # Copy Application Source Code & Prebuilt Vue Frontend
 WORKDIR /app
 COPY best.onnx /app/best.onnx
+COPY modules /app/modules
 COPY server /app/server
 COPY client/dist /app/client/dist
 COPY start.sh /app/start.sh

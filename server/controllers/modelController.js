@@ -13,7 +13,7 @@ exports.getModelInfo = async (req, res) => {
     if (pythonInfo && pythonInfo.success) {
       liveModelInfo.status = 'online';
       liveModelInfo.device = pythonInfo.device || liveModelInfo.device;
-      liveModelInfo.weightsFile = `${pythonInfo.weights_file || 'best.pt'} (${((pythonInfo.metadata?.weights_size_bytes || 19154586) / (1024 * 1024)).toFixed(1)} MB)`;
+      liveModelInfo.weightsFile = `${pythonInfo.weights_file || 'best.pt'} (${((pythonInfo.metadata?.weights_size_bytes || 18210909) / (1024 * 1024)).toFixed(1)} MB)`;
       liveModelInfo.weightsPath = pythonInfo.model;
       
       if (pythonInfo.metadata?.train_metrics) {

@@ -75,7 +75,7 @@
                   </tr>
                   <tr>
                     <td class="bg-light text-muted small fw-semibold">Phiên bản</td>
-                    <td class="text-dark">v1.0.0 (YOLO11s Core)</td>
+                    <td class="text-dark">v3.0.0 (YOLO11s-CBAM Core)</td>
                   </tr>
                   <tr>
                     <td class="bg-light text-muted small fw-semibold">Lĩnh vực</td>
@@ -116,7 +116,7 @@
         <div class="col-6 col-md-4 col-lg-2">
           <div class="p-3 bg-light rounded-3 text-center border h-100">
             <div class="display-6 mb-2">👁️</div>
-            <h6 class="fw-bold mb-1">YOLO11</h6>
+            <h6 class="fw-bold mb-1">YOLO11 + CBAM</h6>
             <span class="text-muted small">Computer Vision</span>
           </div>
         </div>

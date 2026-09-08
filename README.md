@@ -93,48 +93,53 @@ Dữ liệu thô ban đầu (13.548 ảnh)
 
 ## 4. Kiến Trúc Mô Hình & Quá Trình Huấn Luyện
 
-Dự án thử nghiệm trên kiến trúc **YOLO11s** (phiên bản thuộc dòng YOLO do Ultralytics phát triển):
+Dự án phát triển trên kiến trúc nâng tiến **YOLO11s + CBAM** (tích hợp cơ chế chú ý kênh và không gian Convolutional Block Attention Module):
 
-- **Số tầng (Layers):** 101 layers
-- **Số lượng tham số (Parameters):** 9.415.509 tham số
-- **Độ phức tạp tính toán:** 21.4 GFLOPs
+- **Số tầng (Layers):** 97 layers
+- **Số lượng tham số (Parameters):** 8.951.735 tham số (8.95M)
+- **Độ phức tạp tính toán:** 20.5 GFLOPs
 - **Các phiên bản trọng số sử dụng:**
-  - `best.pt` (PyTorch FP32 - 72.5 MB): Lưu trữ trọng số mô hình cùng trạng thái Optimizer (AdamW) phục vụ cho việc fine-tuning tiếp hoặc chạy trên máy chủ GPU CUDA. *(Kích thước trọng số mạng nơ-ron thuần túy tương đương ~18.4 – 19.2 MB như file base `yolo11s.pt`)*.
-  - `best.onnx` (ONNX INT8 Quantized - 9.4 MB): Định dạng ONNX tối ưu qua kỹ thuật lượng tử hóa động (Dynamic Quantization INT8), phục vụ việc nạp trực tiếp vào trình duyệt qua ONNX Runtime Web.
+  - `best.pt` (PyTorch FP32 - 17.4 MB): Trọng số tối ưu nhất đạt được từ Fold 1 (thuộc kiểm định 3-Fold Cross-Validation), phục vụ chạy trên GPU CUDA hoặc inference backend.
+  - `best.onnx` (ONNX Runtime - 34.4 MB): Định dạng ONNX tối ưu phục vụ việc nạp trực tiếp vào trình duyệt qua ONNX Runtime Web (WebGPU / WASM) và chạy mượt mà trên nền tảng Cloud Render CPU.
 
 ### ⚙️ Siêu tham số huấn luyện:
 
 ```text
-- Model Architecture: YOLO11s (Ultralytics)
+- Model Architecture: YOLO11s + CBAM (Ultralytics + Attention Neck)
 - Image Size: 640 x 640
-- Môi trường phần cứng: Google Colab & Local Machine (NVIDIA GeForce RTX 4060, 12GB RAM)
-- Batch Size: 16 - 32 (Phù hợp với môi trường Google Colab GPU & RTX 4060 12GB RAM)
+- Môi trường phần cứng: Google Colab (GPU Tesla T4 16GB VRAM)
+- Batch Size: 32
 - Optimizer: AdamW (lr0 = 0.001, weight_decay = 0.0005)
-- Learning Rate Scheduler: Cosine Annealing (cos_lr = True)
-- Maximum Epochs thiết lập: 100 epochs (Early stopping patience = 30)
-- Actual Training Stop: Epoch 68 (Chủ động dừng sau khi các chỉ số đánh giá có xu hướng ổn định / plateau)
-- Offline Augmentation: Áp dụng balance_dataset.py chỉ trên tập Train
-- Online Augmentation (Ultralytics): Mosaic (1.0), Mixup (0.15), Copy-Paste (0.3), Random Erasing (0.4)
-- Close Mosaic: 15 Epochs cuối tắt Mosaic để tinh chỉnh viền Bounding Box
+- Early Stopping: Patience = 10 epochs
+- Total Epochs: 100 epochs (Hội tụ toàn diện)
+- Phương pháp kiểm chứng: 3-Fold Cross-Validation (K=3) trên toàn bộ 26.048 ảnh
+- Online Augmentation: Mixup (0.15), Copy-Paste (0.3), Random Erasing (0.4), Dropout (0.1)
 ```
 
-Quá trình huấn luyện chi tiết có thể theo dõi trong notebook: [`train_trash_yolo11_colab.ipynb`](train_trash_yolo11_colab.ipynb) hoặc file chạy mã nguồn [`train.py`](train.py).
+Quá trình huấn luyện chi tiết có thể theo dõi trong notebook: [`train_yolo11s_cbam_colab.ipynb`](train_yolo11s_cbam_colab.ipynb).
 
 ---
 
 ## 5. Kết Quả Đánh Giá Mô Hình (Evaluation Metrics)
 
-Kết quả đánh giá định lượng trên tập **Test Set độc lập (3.092 ảnh / 7.079 bounding boxes chưa từng xuất hiện lúc huấn luyện)**:
+Kết quả đánh giá định lượng trên tập **Validation Fold 1 (8.682 ảnh / 19.386 bounding boxes)**:
 
-| Chỉ số đánh giá | Kết quả thực nghiệm | Ý nghĩa chuyên môn |
-| :--- | :---: | :--- |
-| **Precision** | **90.32%** | Tỷ lệ dự đoán đúng trên tổng số dự đoán dương tính |
-| **Recall** | **80.62%** | Tỷ lệ phát hiện đối tượng trên tổng số đối tượng thực tế |
-| **mAP @ 0.50** | **81.25%** | mean Average Precision tại ngưỡng IoU tiêu chuẩn 0.50 trên tập Test |
-| **mAP @ 0.50:0.95** | **66.59%** | mean Average Precision trung bình trên dải ngưỡng IoU từ 0.50 đến 0.95 |
-| **Inference Latency** | **~28 - 32 ms / frame** | Đạt khoảng **30 - 35 FPS** trong điều kiện kiểm thử thực nghiệm, phù hợp xử lý webcam tiệm cận thời gian thực |
+| Chỉ số đánh giá | Kết quả thực nghiệm (Fold 1) | Trung bình 3-Fold (Mean ± Std) | Ý nghĩa chuyên môn |
+| :--- | :---: | :---: | :--- |
+| **Precision (P)** | **93.05%** | **92.83% ± 0.15%** | Tỷ lệ dự đoán đúng trên tổng số dự đoán dương tính |
+| **Recall (R)** | **85.63%** | **85.17% ± 0.51%** | Tỷ lệ phát hiện đối tượng trên tổng số đối tượng thực tế |
+| **mAP @ 0.50** | **91.18%** | **90.87% ± 0.35%** | mean Average Precision tại ngưỡng IoU 0.50 |
+| **mAP @ 0.50:0.95** | **78.82%** | **78.47% ± 0.29%** | mAP trung bình trên dải ngưỡng IoU từ 0.50 đến 0.95 |
+| **Inference Latency** | **7.91 ms / frame** | **8.47 ± 1.82 ms** | Đạt **~126 FPS** trên GPU Tesla T4, đáp ứng vượt xa chuẩn Real-time (>30 FPS) |
 
-*(Lưu ý: Trong quá trình khảo sát điều chỉnh siêu tham số trên tập Validation, chỉ số peak mAP@50 từng đạt mức 86.30% tại Epoch 28).*
+### 📊 Hiệu năng chi tiết trên 7 nhóm rác (Fold 1):
+* 🔋 **Pin (battery):** mAP@50 đạt **98.2%**, mAP@50-95 đạt **87.0%**
+* 📦 **Bìa carton (cardboard):** mAP@50 đạt **98.4%**, mAP@50-95 đạt **86.4%**
+* 📄 **Giấy (paper):** mAP@50 đạt **86.4%**, mAP@50-95 đạt **73.3%**
+* 🍾 **Thủy tinh (glass):** mAP@50 đạt **99.2%**, mAP@50-95 đạt **93.5%**
+* 🥫 **Kim loại (metal):** mAP@50 đạt **88.5%**, mAP@50-95 đạt **74.7%**
+* 🧴 **Nhựa (plastic):** mAP@50 đạt **74.6%**, mAP@50-95 đạt **64.0%**
+* 🍎 **Hữu cơ (organic):** mAP@50 đạt **93.0%**, mAP@50-95 đạt **72.8%**
 
 ### 🖼️ Minh chứng kết quả nhận diện thực tế:
 
@@ -206,8 +211,8 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 │   ├── uploads/                     # Thư mục lưu ảnh đã phân loại
 │   ├── server.js                    # Web server chính chạy Node.js Express (Port 5000)
 │   └── yolo_service.py              # Dịch vụ AI Python Flask kết nối YOLO model (Port 5001)
-├── best.pt                          # Trọng số mô hình PyTorch (72.5 MB)
-├── best.onnx                        # Mô hình ONNX INT8 cho web (9.4 MB)
+├── best.pt                          # Trọng số tối ưu YOLO11s-CBAM PyTorch (17.4 MB)
+├── best.onnx                        # Mô hình ONNX Runtime cho Web & Render (34.4 MB)
 ├── data_balanced.yaml               # Cấu hình 7 nhãn và dataset
 ├── config.py                        # Cấu hình siêu tham số huấn luyện
 ├── balance_dataset.py               # Script cân bằng tỷ lệ mẫu dữ liệu

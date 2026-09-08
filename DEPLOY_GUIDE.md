@@ -29,16 +29,16 @@ Mở Terminal tại thư mục `d:\SIC\Trash` và chạy các lệnh sau:
 git remote add space https://huggingface.co/spaces/YOUR_USERNAME/trash-ai-classifier.git
 
 # 2. Thêm các file cần thiết
-git add Dockerfile .dockerignore start.sh best.pt client server package.json
+git add Dockerfile .dockerignore start.sh best.onnx modules client server package.json
 
 # 3. Commit
-git commit -m "Deploy Trash AI Fullstack App via Docker"
+git commit -m "Deploy Trash AI YOLO11s-CBAM Fullstack App via Docker"
 
 # 4. Đẩy lên Space
 git push space main --force
 ```
 
-*(Hoặc bạn có thể kéo thả trực tiếp các thư mục `client`, `server`, file `best.pt`, `Dockerfile`, `start.sh` lên giao diện web của Hugging Face)*.
+*(Hoặc bạn có thể kéo thả trực tiếp các thư mục `client`, `server`, `modules`, file `best.onnx`, `Dockerfile`, `start.sh` lên giao diện web của Hugging Face)*.
 
 ### Bước 3: Thưởng thức thành quả!
 * Hugging Face sẽ tự động kích hoạt Docker build trong ~3 phút.
@@ -50,7 +50,7 @@ git push space main --force
 
 ## 📦 CÁCH 2: Triển khai lên Render.com
 
-1. Đẩy mã nguồn dự án lên tài khoản GitHub của bạn (Bao gồm `Dockerfile`, `start.sh`, `best.pt`, `client/`, `server/`).
+1. Đẩy mã nguồn dự án lên tài khoản GitHub của bạn (Bao gồm `Dockerfile`, `start.sh`, `best.onnx`, `modules/`, `client/`, `server/`).
 2. Truy cập [https://render.com](https://render.com) $\rightarrow$ Đăng nhập bằng GitHub.
 3. Bấm **New +** $\rightarrow$ Chọn **Web Service**.
 4. Chọn repository GitHub của dự án bạn vừa đẩy lên.

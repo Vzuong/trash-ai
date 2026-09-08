@@ -23,11 +23,12 @@ def main():
         return
 
     device = '0' if torch.cuda.is_available() else 'cpu'
+    gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'
     print("=" * 60)
-    print(f"🔍 TESTING YOLO MODEL ON IMAGE: {args.image}")
-    print(f"  Device: {'GPU (NVIDIA GTX 1650)' if torch.cuda.is_available() else 'CPU'}")
-    print(f"  Weights: {args.weights}")
-    print(f"  Confidence Threshold: {args.conf}")
+    print(f"Testing model on image: {args.image}")
+    print(f"  Device   : {gpu_name}")
+    print(f"  Weights  : {args.weights}")
+    print(f"  Conf     : {args.conf}")
     print("=" * 60)
 
     model = YOLO(args.weights)
@@ -35,9 +36,9 @@ def main():
     
     results = model.predict(source=img, conf=args.conf, iou=args.iou, device=device, verbose=True)[0]
 
-    print("\n--- KẾT QUẢ DỰ ĐOÁN TỪ MODEL RAW ---")
+    print("\n--- Predictions ---")
     if not results.boxes or len(results.boxes) == 0:
-        print(" -> Không phát hiện vật thể nào (No objects detected).")
+        print(" -> No objects detected.")
     else:
         for i, box in enumerate(results.boxes):
             cls_id = int(box.cls[0].item())
@@ -50,7 +51,7 @@ def main():
     out_path = "test_output.jpg"
     annotated = results.plot()
     cv2.imwrite(out_path, annotated)
-    print(f"\n✅ Đã lưu ảnh kết quả trực quan tại: {out_path}")
+    print(f"\nVisualization saved to: {out_path}")
 
 if __name__ == "__main__":
     main()

@@ -174,14 +174,14 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 ┌────────────────────────────────────────┐ ┌──────────────────────────────┐
 │        ONNX RUNTIME WEB ENGINE         │ │        WEB API SERVER        │
 │        (WebGPU / WASM SIMD)            │ │       Node.js Express        │
-│  - Nạp best.onnx (9.4MB) vào RAM client│ │  - Quản lý lịch sử, upload   │
+│  - Nạp best.onnx (34.4MB)              │ │  - Quản lý lịch sử, upload   │
 │  - Xử lý trực tiếp camera trên browser │ └──────────────┬───────────────┘
 └────────────────────────────────────────┘                │ Internal Proxy
                                                           ▼
                                            ┌──────────────────────────────┐
                                            │    PYTHON AI MICROSERVICE    │
                                            │   Flask + PyTorch (CUDA)     │
-                                           │  - Nạp best.pt (72.5MB)      │
+                                           │  - Nạp best.pt (17.4MB)      │
                                            │  - Xử lý ảnh tĩnh tải lên    │
                                            └──────────────────────────────┘
 ```
@@ -194,7 +194,7 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 .
 ├── client/                          # Mã nguồn Frontend Vue.js 3
 │   ├── dist/                        # Bản build tĩnh production
-│   ├── public/                      # Tài nguyên tĩnh (WASM, Mô hình ONNX 9.4MB)
+│   ├── public/                      # Tài nguyên tĩnh (WASM, mô hình ONNX 34.4MB)
 │   ├── src/                         # Components, Views, Routers, Services
 │   │   ├── components/classify/     # WebcamClassifier & ImageClassifier
 │   │   ├── views/                   # DashboardView, ModelInfoView, HistoryView...
@@ -210,13 +210,21 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 │   ├── uploads/                     # Thư mục lưu ảnh đã phân loại
 │   ├── server.js                    # Web server chính chạy Node.js Express (Port 5000)
 │   └── yolo_service.py              # Dịch vụ AI Python Flask kết nối YOLO model (Port 5001)
+├── modules/                         # Module mạng nơ-ron tùy biến
+│   └── cbam.py                      # Module Convolutional Block Attention Module
+├── models/                          # Cấu hình mạng nơ-ron
+│   └── yolo11s-cbam.yaml            # Định nghĩa kiến trúc YOLO11s-CBAM
 ├── best.pt                          # Trọng số tối ưu YOLO11s-CBAM PyTorch (17.4 MB)
 ├── best.onnx                        # Mô hình ONNX Runtime cho Web & Render (34.4 MB)
 ├── data_balanced.yaml               # Cấu hình 7 nhãn và dataset
 ├── config.py                        # Cấu hình siêu tham số huấn luyện
 ├── balance_dataset.py               # Script cân bằng tỷ lệ mẫu dữ liệu
-├── train.py                         # Script huấn luyện YOLOv11s trên Local
-├── train_trash_yolo11_colab.ipynb   # Notebook huấn luyện trên Google Colab
+├── train.py                         # Script huấn luyện YOLO11s trên Local
+├── train_cbam_colab.py              # Script huấn luyện 3-Fold YOLO11s-CBAM
+├── train_yolo11s_cbam_colab.ipynb   # Notebook huấn luyện 3-Fold trên Google Colab
+├── train_rtdetr_colab.py            # Script huấn luyện mô hình RT-DETR đối chứng
+├── train_rtdetr_colab.ipynb         # Notebook huấn luyện RT-DETR trên Google Colab
+├── train_trash_yolo11_colab.ipynb   # Notebook huấn luyện YOLO11 cơ bản
 ├── test_webcam.py                   # Kiểm thử nhận diện webcam qua Python CUDA
 ├── test_image.py                    # Kiểm thử nhận diện trên ảnh tĩnh
 ├── test_api_endpoints.py            # Kiểm thử tự động các đầu API

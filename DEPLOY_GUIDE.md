@@ -1,72 +1,44 @@
-# 🚀 HƯỚNG DẪN ĐƯA HỆ THỐNG AI LÊN WEB ONLINE (DOCKER)
+# Hướng Dẫn Triển Khai Hệ Thống (Deployment Guide)
 
-Hệ thống đã được cấu hình trọn bộ **3 trong 1** (Vue 3 + Node.js Backend + Python YOLO11 AI Service) chỉ trong **1 Docker Container duy nhất**.
+Hệ thống được đóng gói thông qua Docker (kết hợp Vue 3 Frontend, Node.js Backend và Python AI Service chạy trên ONNX Runtime).
 
 ---
 
-## 🌟 CÁCH 1: Triển khai lên Hugging Face Spaces (MIỄN PHÍ 16GB RAM - KHUYÊN DÙNG ⭐⭐⭐)
+## 1. Triển khai qua Docker trên máy cục bộ (Localhost)
 
-Hugging Face là nền tảng số 1 thế giới cho các ứng dụng AI, miễn phí 16 GB RAM + 2 vCPU vĩnh viễn.
-
-### Bước 1: Tạo Space trên Hugging Face
-1. Truy cập: [https://huggingface.co/spaces](https://huggingface.co/spaces) (Đăng ký tài khoản miễn phí nếu chưa có).
-2. Bấm nút **Create new Space**.
-3. Điền các thông tin:
-   * **Space name:** `trash-ai-classifier` (hoặc tên tùy thích)
-   * **License:** `mit`
-   * **Space SDK:** Chọn **Docker** (biểu tượng cá voi xanh 🐳)
-   * **Docker template:** Chọn **Blank**
-   * **Space Hardware:** Chọn **CPU Basic (Free - 2 vCPU, 16GB RAM)**
-4. Bấm **Create Space**.
-
-### Bước 2: Đẩy dự án lên Hugging Face Space
-Hugging Face sẽ cung cấp cho bạn 1 đường dẫn Git của Space (Ví dụ: `https://huggingface.co/spaces/YOUR_USERNAME/trash-ai-classifier`).
-
-Mở Terminal tại thư mục `d:\SIC\Trash` và chạy các lệnh sau:
+Yêu cầu môi trường đã cài đặt Docker Desktop.
 
 ```bash
-# 1. Thêm remote của Hugging Face
-git remote add space https://huggingface.co/spaces/YOUR_USERNAME/trash-ai-classifier.git
+# Xây dựng image và khởi chạy container
+docker compose up --build -d
 
-# 2. Thêm các file cần thiết
-git add Dockerfile .dockerignore start.sh best.onnx modules client server package.json
+# Xem log hoạt động
+docker compose logs -f
 
-# 3. Commit
-git commit -m "Deploy Trash AI YOLO11s-CBAM Fullstack App via Docker"
-
-# 4. Đẩy lên Space
-git push space main --force
-```
-
-*(Hoặc bạn có thể kéo thả trực tiếp các thư mục `client`, `server`, `modules`, file `best.onnx`, `Dockerfile`, `start.sh` lên giao diện web của Hugging Face)*.
-
-### Bước 3: Thưởng thức thành quả!
-* Hugging Face sẽ tự động kích hoạt Docker build trong ~3 phút.
-* Sau khi hoàn tất, hệ thống sẽ cấp cho bạn một đường link web chính thức dạng:
-  👉 **`https://YOUR_USERNAME-trash-ai-classifier.hf.space`**
-* **Bất kỳ ai (kể cả trên điện thoại iPhone/Android hay máy tính)** bấm vào link đều mở camera quét rác, xem thống kê và lịch sử mượt mà 24/7!
-
----
-
-## 📦 CÁCH 2: Triển khai lên Render.com
-
-1. Đẩy mã nguồn dự án lên tài khoản GitHub của bạn (Bao gồm `Dockerfile`, `start.sh`, `best.onnx`, `modules/`, `client/`, `server/`).
-2. Truy cập [https://render.com](https://render.com) $\rightarrow$ Đăng nhập bằng GitHub.
-3. Bấm **New +** $\rightarrow$ Chọn **Web Service**.
-4. Chọn repository GitHub của dự án bạn vừa đẩy lên.
-5. Ở mục **Environment / Runtime**, Render sẽ tự động nhận diện là **Docker**.
-6. Chọn gói **Free** $\rightarrow$ Bấm **Create Web Service**.
-7. Render sẽ tự động build và cấp cho bạn tên miền:
-  👉 **`https://ten-du-an.onrender.com`**
-
----
-
-## 🐳 CÁCH 3: Chạy thử Docker trên máy tính cục bộ (Nếu máy bạn có cài Docker Desktop)
-
-```bash
-# Build và khởi động bằng Docker Compose:
-docker compose up --build
-
-# Mở trình duyệt truy cập:
+# Truy cập ứng dụng
 http://localhost:7860
 ```
+
+---
+
+## 2. Triển khai lên nền tảng Render
+
+1. Đẩy toàn bộ mã nguồn lên repository GitHub.
+2. Truy cập [Render Dashboard](https://dashboard.render.com).
+3. Chọn **New** -> **Web Service** -> Chọn repository tương ứng.
+4. Render sẽ tự động phát hiện `Dockerfile`. Chọn môi trường **Docker**, cấu hình instance phù hợp (gói Free hoặc Starter).
+5. Nhấn **Create Web Service** để bắt đầu quá trình build và deploy.
+
+---
+
+## 3. Triển khai lên Hugging Face Spaces
+
+1. Tạo một Space mới trên [Hugging Face Spaces](https://huggingface.co/spaces) với SDK là **Docker**.
+2. Thiết lập remote Git và đẩy mã nguồn:
+
+```bash
+git remote add space https://huggingface.co/spaces/<USERNAME>/<SPACE_NAME>.git
+git push space master --force
+```
+
+Sau khi hoàn tất quá trình build, ứng dụng sẽ phục vụ tại đường dẫn của Space.

@@ -226,9 +226,7 @@ import apiService from '../../services/api';
 const videoElement = ref(null);
 const overlayCanvas = ref(null);
 
-// Synchronously detect hostname:
-// - Localhost / Local IP -> 'server_gpu' (NVIDIA GPU on presentation PC)
-// - Render / Public Internet -> ALWAYS 'client_webgpu' (Run on viewer device GPU, never send to Render CPU)
+// Detect local environment
 const isRunningLocally = typeof window !== 'undefined' && 
   (window.location.hostname === 'localhost' || 
    window.location.hostname === '127.0.0.1' || 
@@ -239,7 +237,7 @@ const clientModelLoading = ref(false);
 const clientBackend = ref('WebGPU');
 
 const modelStatus = ref('ready'); // 'ready' | 'error'
-const modelBackend = ref(isRunningLocally ? 'NVIDIA GPU (Local)' : 'WebGPU (Thiết bị của bạn)');
+const modelBackend = ref(isRunningLocally ? 'NVIDIA GPU (Local)' : 'WebGPU / WASM (Client)');
 const loadErrorMessage = ref('');
 let serverHasGPUState = false;
 
@@ -268,8 +266,8 @@ let captureCtx = null;
 
 async function setEngineMode(mode) {
   if (mode === 'server_gpu' && !isRunningLocally && !serverHasGPUState) {
-    const ok = confirm('⚠️ Chú ý: Máy chủ đám mây Render là gói miễn phí KHÔNG CÓ GPU (chỉ có CPU yếu).\n\nNếu bạn chọn chế độ này, frame camera phải bay sang Mỹ xử lý trên CPU nên độ trễ sẽ bị chậm ~2 giây.\n\nBạn có muốn giữ chế độ "WebGPU Trình Duyệt" để dùng GPU của chính máy bạn không?');
-    if (ok) return;
+    const ok = confirm('Lưu ý: Máy chủ đám mây xử lý qua CPU nên độ trễ suy luận có thể chậm hơn (~1-2s).\n\nKhuyến nghị sử dụng chế độ WebGPU trên trình duyệt để đạt hiệu năng thời gian thực tốt nhất.\n\nBạn có muốn tiếp tục chuyển sang Server API không?');
+    if (!ok) return;
   }
 
   engineMode.value = mode;
@@ -280,7 +278,7 @@ async function setEngineMode(mode) {
         await yoloWebEngine.loadModel('/models/best.onnx');
         clientBackend.value = yoloWebEngine.activeProvider || 'WebGPU';
       } catch (e) {
-        console.warn('Lỗi kích hoạt WebGPU Client:', e);
+        console.warn('WebGPU client initialization error:', e);
       } finally {
         clientModelLoading.value = false;
       }
@@ -301,16 +299,14 @@ async function initModel() {
       if (isRunningLocally || serverHasGPUState) {
         modelBackend.value = healthRes.ai.device || 'NVIDIA GPU (Local)';
       } else {
-        modelBackend.value = 'Render Cloud (CPU)';
+        modelBackend.value = 'Cloud CPU';
       }
     }
   } catch (err) {
-    console.warn('[WebcamClassifier] Kiểm tra AI Health ban đầu:', err);
+    console.warn('[WebcamClassifier] Health check:', err);
   }
 
-  // Tự động nhận diện môi trường:
-  // - Nếu chạy trên localhost hoặc server có GPU NVIDIA -> ưu tiên Server GPU cho thuyết trình siêu mượt (~20ms)
-  // - Nếu chạy trên Render (cloud công khai không GPU) -> tự động kích hoạt WebGPU để người xem dùng GPU máy họ!
+  // Set default engine mode
   if (isRunningLocally || serverHasGPUState) {
     engineMode.value = 'server_gpu';
   } else {

@@ -7,7 +7,7 @@ import cv2
 import os
 
 def run_tests():
-    # Thử cổng 5000 (chạy local theo README) hoặc 7860 (chạy Docker)
+    # Base URL check
     base_url = os.environ.get('APP_URL')
     if not base_url:
         for port in [5000, 7860]:
@@ -45,7 +45,7 @@ def run_tests():
         print("Model Info Failed:", e)
 
     # 3. Blank frame (Empty background test)
-    print("\n=== 3. Empty Background / Corridor Test ===")
+    print("\n=== 3. Blank Frame Test ===")
     blank = np.zeros((480, 640, 3), dtype=np.uint8)
     _, buffer = cv2.imencode('.jpg', blank)
     b64_str = 'data:image/jpeg;base64,' + base64.b64encode(buffer).decode('utf-8')
@@ -60,16 +60,14 @@ def run_tests():
             data = json.loads(resp.read().decode('utf-8'))
             print("Success:", data.get('success'))
             print("Total Objects:", data.get('data', {}).get('totalObjects'))
-            print("Detections List:", data.get('data', {}).get('detections'))
-            print("Primary Result:", data.get('data', {}).get('primaryResult'))
-            assert data.get('data', {}).get('totalObjects') == 0, "Expected 0 objects for blank frame!"
-            assert len(data.get('data', {}).get('detections')) == 0, "Expected empty detections list!"
-            print("-> PASSED: Empty background returns exactly 0 detections (No fake boxes)!")
+            assert data.get('data', {}).get('totalObjects') == 0, "Expected 0 objects for blank frame"
+            assert len(data.get('data', {}).get('detections')) == 0, "Expected empty detections list"
+            print("-> PASSED: Blank frame returned 0 detections")
     except Exception as e:
         print("Blank Frame Test Failed:", e)
 
-    # 4. Real Object Test (Battery image)
-    print("\n=== 4. Real Object Detection Test (Battery) ===")
+    # 4. Sample Object Test (Battery image)
+    print("\n=== 4. Object Detection Test ===")
     bat_img = cv2.imread('server/uploads/sample_battery.jpg')
     _, buffer_bat = cv2.imencode('.jpg', bat_img)
     b64_bat = 'data:image/jpeg;base64,' + base64.b64encode(buffer_bat).decode('utf-8')
@@ -87,11 +85,11 @@ def run_tests():
             print("Total Objects:", len(detections))
             for d in detections:
                 print(f" -> Object: {d.get('className')} ({d.get('classCode')}) | Conf: {d.get('confidencePercent')}% | BBox: {d.get('bbox')}")
-            assert len(detections) > 0, "Expected at least 1 object!"
-            assert detections[0].get('classCode') == 'battery', "Expected battery class!"
-            print("-> PASSED: Real AI detected genuine object with accurate coordinates!")
+            assert len(detections) > 0, "Expected at least 1 object"
+            assert detections[0].get('classCode') == 'battery', "Expected battery class"
+            print("-> PASSED: Detection endpoint returned valid prediction")
     except Exception as e:
-        print("Battery Test Failed:", e)
+        print("Object Detection Test Failed:", e)
 
 if __name__ == "__main__":
     run_tests()

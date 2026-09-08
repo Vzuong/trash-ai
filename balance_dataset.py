@@ -126,62 +126,53 @@ def balance_dataset(
     if min_boxes_per_class is None:
         min_boxes_per_class = int(target_boxes_per_class * 0.92)
 
-    print("=" * 80)
-    print(" ⚖️ BẮT ĐẦU CÂN BẰNG DATASET PHÂN LOẠI RÁC (YOLO DATASET BALANCER)")
-    print(f"  Thư mục nguồn (Source)       : {source_dir}")
-    print(f"  Thư mục đích (Target)        : {output_dir}")
-    print(f"  Số box mục tiêu mỗi lớp      : ~{target_boxes_per_class} boxes")
-    print(f"  Tập xử lý (Split)            : {split}")
-    print(f"  Tăng cường mẫu thiếu (Aug)   : {'BẬT (Tự động bù đắp các lớp chưa đủ)' if do_augmentation else 'TẮT'}")
-    print("=" * 80)
+    print("=" * 70)
+    print(" YOLO Dataset Balancer")
+    print(f"  Source directory : {source_dir}")
+    print(f"  Target directory : {output_dir}")
+    print(f"  Target boxes/cls : ~{target_boxes_per_class}")
+    print(f"  Split            : {split}")
+    print(f"  Augmentation     : {'Enabled' if do_augmentation else 'Disabled'}")
+    print("=" * 70)
 
-    # Step 1: Scan Source Dataset
+    # 1. Scan source dataset
     images, class_counts, img_to_classes = scan_dataset(source_dir, split=split)
     if not images:
-        print(f"[ERROR] Không tìm thấy dữ liệu ảnh/nhãn trong {source_dir}/{split}!")
+        print(f"[ERROR] No data found in {source_dir}/{split}")
         return
 
-    print(f"\n📊 [1/4] PHÂN BỐ DỮ LIỆU HIỆN TẠI (Trước khi cân bằng):")
+    print(f"\n[1/4] Class distribution before balancing:")
     print("-" * 60)
-    print(f"{'Class ID':<10} | {'Tên lớp':<12} | {'Số lượng Box':<15} | {'Trạng thái'}")
+    print(f"{'Class ID':<10} | {'Class Name':<12} | {'Box Count':<15} | {'Status'}")
     print("-" * 60)
     for c_id in sorted(CLASS_NAMES.keys()):
         c_name = CLASS_NAMES[c_id]
         cnt = class_counts[c_id]
         if cnt > target_boxes_per_class * 1.3:
-            status = "🔴 Quá dư (Cần cắt bớt)"
+            status = "Over-represented"
         elif cnt < min_boxes_per_class:
-            status = "🟡 Thiếu (Cần tăng cường)"
+            status = "Under-represented"
         else:
-            status = "🟢 Đạt chuẩn cân bằng"
+            status = "Balanced"
         print(f"{c_id:<10} | {c_name:<12} | {cnt:<15} | {status}")
     print("-" * 60)
-    print(f"👉 Tổng số ảnh hiện tại: {len(images)} ảnh | Tổng boxes: {sum(class_counts.values())}")
+    print(f"Total source images: {len(images)} | Total boxes: {sum(class_counts.values())}")
 
-    # Prepare Target Dirs
+    # Prepare target dirs
     target_img_dir = os.path.join(output_dir, split, "images")
     target_lbl_dir = os.path.join(output_dir, split, "labels")
     os.makedirs(target_img_dir, exist_ok=True)
     os.makedirs(target_lbl_dir, exist_ok=True)
 
-    # Step 2: Intelligent Undersampling for Over-represented classes (e.g., cardboard, organic)
-    # Strategy: Keep ALL multi-class images that contain rare classes (battery, glass, plastic, etc.).
-    # Only trim single-class images belonging to over-represented classes.
+    # 2. Multi-Class Balancing (Greedy Selection)
+    print(f"\n[2/4] Sampling images to target ~{target_boxes_per_class} boxes per class...")
     
-    # Step 2: Intelligent Multi-Class Balancing
-    # Instead of deleting images sequentially, we greedily select images to preserve balance
-    print(f"\n✂️ [2/4] ĐANG CÂN BẰNG TẬP DỮ LIỆU VỀ MỨC MỤC TIÊU ~{target_boxes_per_class} BOXES/LỚP...")
-    
-    # Sort classes by count ascending (least frequent first)
     sorted_classes = sorted(CLASS_NAMES.keys(), key=lambda c: class_counts[c])
-    
     selected_images = set()
     current_counts = Counter()
 
-    # Pass 1: For each class, pick images until target_boxes_per_class is reached
     random.seed(42)
     for c_id in sorted_classes:
-        # Find all images containing this class that haven't been selected yet
         c_images = [base for base, c_set in img_to_classes.items() if c_id in c_set and base not in selected_images]
         random.shuffle(c_images)
 
@@ -189,18 +180,16 @@ def balance_dataset(
             if current_counts[c_id] >= target_boxes_per_class:
                 break
             
-            # Add this image
             selected_images.add(base)
             for cid, _ in images[base]['boxes']:
                 current_counts[cid] += 1
 
     kept_images = selected_images
     discarded_count = len(images) - len(kept_images)
-    print(f"  -> Đã chọn {len(kept_images)} ảnh tối ưu, loại bỏ {discarded_count} ảnh dư thừa.")
-    print(f"  -> Phân bố sau khi lọc: {[f'{CLASS_NAMES[k]}: {current_counts[k]}' for k in sorted(CLASS_NAMES.keys())]}")
+    print(f"  Selected {len(kept_images)} images, pruned {discarded_count} redundant images.")
 
-    # Copy Kept Images & Labels to output
-    print(f"\n💾 [3/4] ĐANG SAO CHÉP & TĂNG CƯỜNG DỮ LIỆU SANG THƯ MỤC CÂN BẰNG...")
+    # 3. Copy kept images and augment under-represented classes
+    print(f"\n[3/4] Copying images and augmenting minority classes...")
     final_class_counts = Counter()
     copied_count = 0
 
@@ -216,7 +205,6 @@ def balance_dataset(
         for c_id, _ in data['boxes']:
             final_class_counts[c_id] += 1
 
-    # Step 3: Offline Data Augmentation for Under-represented classes (battery, glass, plastic)
     augmented_count = 0
     if do_augmentation:
         under_represented = [c for c in CLASS_NAMES.keys() if final_class_counts[c] < min_boxes_per_class]
@@ -226,14 +214,10 @@ def balance_dataset(
             if needed <= 0:
                 continue
 
-            # Find all images containing this rare class
             source_candidates = [b for b in kept_images if under_cls in img_to_classes[b]]
             if not source_candidates:
                 continue
 
-            print(f"  ⚡ Tăng cường lớp '{CLASS_NAMES[under_cls]}' (Hiện có: {final_class_counts[under_cls]} -> Cần thêm: ~{needed} boxes)...")
-
-            # Multiply / Augment images with random variations
             aug_idx = 0
             while final_class_counts[under_cls] < target_boxes_per_class and aug_idx < 10000:
                 base = random.choice(source_candidates)
@@ -246,13 +230,11 @@ def balance_dataset(
 
                 aug_img_cv, new_boxes = augment_image_and_boxes(img_cv, data['boxes'])
                 
-                # Check if rare class still exists in new boxes
                 rare_in_aug = [c for c, _ in new_boxes if c == under_cls]
                 if not rare_in_aug:
                     aug_idx += 1
                     continue
 
-                # Save new augmented file
                 unique_suffix = uuid.uuid4().hex[:6]
                 aug_base = f"aug_{CLASS_NAMES[under_cls]}_{base[:20]}_{unique_suffix}"
                 aug_img_path = os.path.join(target_img_dir, aug_base + data['ext'])
@@ -269,7 +251,7 @@ def balance_dataset(
                 augmented_count += 1
                 aug_idx += 1
 
-    # Also copy val & test splits untouched to maintain objective evaluation
+    # Copy val & test splits
     for other_split in ["val", "test"]:
         other_src_img = os.path.join(source_dir, other_split, "images")
         other_src_lbl = os.path.join(source_dir, other_split, "labels")
@@ -290,10 +272,7 @@ train: {split}/images
 val: val/images
 test: test/images
 
-# Number of classes
 nc: 7
-
-# Class Names
 names:
   0: battery
   1: cardboard
@@ -307,31 +286,30 @@ names:
     with open(yaml_path, 'w', encoding='utf-8') as f:
         f.write(yaml_content)
 
-    # Step 4: Final Summary Report
-    print("\n" + "=" * 80)
-    print(" 🎉 HOÀN THÀNH CÂN BẰNG DATASET!")
-    print("=" * 80)
-    print(f"{'Class ID':<10} | {'Tên lớp':<12} | {'Trước (Old)':<14} | {'Sau (Balanced)':<16} | {'Tỷ lệ %'}")
-    print("-" * 80)
+    # 4. Summary Report
+    print("\n" + "=" * 70)
+    print(" Dataset Balancing Summary")
+    print("=" * 70)
+    print(f"{'Class ID':<10} | {'Class Name':<12} | {'Original':<12} | {'Balanced':<12} | {'Ratio %'}")
+    print("-" * 70)
     total_final_boxes = sum(final_class_counts.values())
     for c_id in sorted(CLASS_NAMES.keys()):
         c_name = CLASS_NAMES[c_id]
         b_old = class_counts[c_id]
         b_new = final_class_counts[c_id]
         pct = (b_new / total_final_boxes * 100) if total_final_boxes > 0 else 0
-        print(f"{c_id:<10} | {c_name:<12} | {b_old:<14} | {b_new:<16} | {pct:.1f}%")
-    print("-" * 80)
-    print(f"👉 Tổng ảnh train mới     : {len(os.listdir(target_img_dir))} ảnh")
-    print(f"👉 File cấu hình dataset  : {yaml_path}")
-    print(f"👉 Câu lệnh train ngay    : python train.py --data data_balanced.yaml --epochs 50")
-    print("=" * 80)
+        print(f"{c_id:<10} | {c_name:<12} | {b_old:<12} | {b_new:<12} | {pct:.1f}%")
+    print("-" * 70)
+    print(f"Total train images : {len(os.listdir(target_img_dir))}")
+    print(f"Dataset config     : {yaml_path}")
+    print("=" * 70)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Cân bằng Dataset Phân Loại Rác YOLO (Smart Undersampling & Augmentation)')
-    parser.add_argument('--source', type=str, default='Trash_dataset', help='Thư mục dataset gốc')
-    parser.add_argument('--output', type=str, default='Trash_dataset_balanced', help='Thư mục lưu dataset đã cân bằng')
-    parser.add_argument('--target_boxes', type=int, default=2800, help='Số lượng bounding box mục tiêu cho mỗi lớp (mặc định: 2800)')
-    parser.add_argument('--no_aug', action='store_true', help='Chỉ cắt bớt lớp dư thừa, không tăng cường lớp thiếu')
+    parser = argparse.ArgumentParser(description='YOLO Trash Dataset Balancer')
+    parser.add_argument('--source', type=str, default='Trash_dataset', help='Source dataset directory')
+    parser.add_argument('--output', type=str, default='Trash_dataset_balanced', help='Output dataset directory')
+    parser.add_argument('--target_boxes', type=int, default=2800, help='Target bounding box count per class')
+    parser.add_argument('--no_aug', action='store_true', help='Disable augmentation for minority classes')
     args = parser.parse_args()
 
     balance_dataset(

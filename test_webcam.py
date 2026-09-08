@@ -78,8 +78,6 @@ def open_working_camera(preferred_idx=0):
     candidate_indices = [preferred_idx] + [i for i in [0, 1, 2] if i != preferred_idx]
     
     for idx in candidate_indices:
-        print(f"-> Đang thử mở Camera index {idx}...")
-        # Thử DirectShow (DSHOW) trên Windows trước, nếu không được dùng mặc định
         cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
         if not cap.isOpened():
             cap = cv2.VideoCapture(idx)
@@ -87,7 +85,7 @@ def open_working_camera(preferred_idx=0):
         if cap.isOpened():
             ret, test_frame = cap.read()
             if ret and test_frame is not None:
-                print(f"✅ Kết nối thành công Camera index {idx}!")
+                print(f"Connected to camera (index {idx})")
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
                 return cap, idx
@@ -96,15 +94,15 @@ def open_working_camera(preferred_idx=0):
     return None, -1
 
 def main():
-    parser = argparse.ArgumentParser(description="Test Webcam với mô hình YOLO11s-CBAM")
-    parser.add_argument("--model", type=str, default="bestfold1.pt", help="Đường dẫn file trọng số model")
-    parser.add_argument("--camera", type=int, default=0, help="Camera index (0: Webcam tích hợp, 1: Iriun/Cam ngoài)")
-    parser.add_argument("--conf", type=float, default=0.35, help="Ngưỡng tự tin Confidence threshold")
-    parser.add_argument("--iou", type=float, default=0.45, help="Ngưỡng NMS IoU threshold")
-    parser.add_argument("--imgsz", type=int, default=640, help="Kích thước ảnh đầu vào")
+    parser = argparse.ArgumentParser(description="Webcam real-time inference with YOLO11s-CBAM")
+    parser.add_argument("--model", type=str, default="bestfold1.pt", help="Path to weights file")
+    parser.add_argument("--camera", type=int, default=0, help="Camera index")
+    parser.add_argument("--conf", type=float, default=0.35, help="Confidence threshold")
+    parser.add_argument("--iou", type=float, default=0.45, help="NMS IoU threshold")
+    parser.add_argument("--imgsz", type=int, default=640, help="Input image size")
     args = parser.parse_args()
 
-    # Kiểm tra đường dẫn model
+    # Locate model checkpoint
     model_path = args.model
     if not os.path.exists(model_path):
         candidates = ["bestfold1.pt", "best.pt", "weights/bestfold1.pt", "weights/best.pt"]
@@ -114,24 +112,23 @@ def main():
                 break
 
     if not os.path.exists(model_path):
-        print(f"❌ Không tìm thấy file trọng số '{args.model}'!")
-        print("Vui lòng kiểm tra lại đường dẫn file .pt.")
+        print(f"[ERROR] Model weights not found: '{args.model}'")
         return
 
-    print(f"📦 Đang tải mô hình từ: {model_path}...")
+    print(f"Loading model: {model_path}...")
     device = 0 if torch.cuda.is_available() else "cpu"
-    print(f"⚡ Thiết bị tăng tốc: {'GPU (CUDA)' if device == 0 else 'CPU'}")
+    print(f"Device: {'GPU (CUDA)' if device == 0 else 'CPU'}")
 
     try:
         model = YOLO(model_path)
     except Exception as e:
-        print(f"❌ Lỗi khi khởi tạo mô hình: {e}")
+        print(f"[ERROR] Could not load model: {e}")
         return
 
-    # Mở Camera
+    # Open camera
     cap, used_idx = open_working_camera(args.camera)
     if cap is None:
-        print("❌ Không thể mở bất kỳ Camera nào! Hãy kiểm tra lại kết nối webcam hoặc quyền truy cập camera.")
+        print("[ERROR] Could not open camera device. Please check camera connections and permissions.")
         return
 
     window_name = f"Trash AI - YOLO11s-CBAM ({os.path.basename(model_path)})"
@@ -145,10 +142,11 @@ def main():
     os.makedirs(save_dir, exist_ok=True)
 
     print("\n" + "="*60)
-    print("🚀 ĐANG CHẠY TEST WEBCAM - PHÂN LOẠI RÁC THẢI")
-    print(" - Nhấn 'Q' hoặc 'ESC' để THOÁT")
-    print(" - Nhấn 'S' hoặc 'C' để CHỤP VÀ LƯU ẢNH")
-    print(" - Nhấn '+' / '-' để TĂNG / GIẢM NGƯỠNG CONFIDENCE")
+    print("WEBCAM INFERENCE - TRASH CLASSIFICATION")
+    print("Hotkeys:")
+    print("  [Q] or [ESC] : Exit")
+    print("  [S] or [C]   : Save frame")
+    print("  [+] / [-]    : Adjust confidence threshold")
     print("="*60 + "\n")
 
     while True:
@@ -220,26 +218,26 @@ def main():
         cv2.imshow(window_name, annotated)
 
         key = cv2.waitKey(1) & 0xFF
-        if key == ord('q') or key == 27:  # Q hoặc ESC
+        if key == ord('q') or key == 27:  # Q or ESC
             break
-        elif key == ord('s') or key == ord('c'):  # Lưu ảnh chụp
+        elif key == ord('s') or key == ord('c'):  # Save frame
             fname = os.path.join(save_dir, f"capture_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
             cv2.imwrite(fname, annotated)
-            print(f"📸 Đã lưu ảnh phát hiện vào: {fname}")
-        elif key == ord('+') or key == ord('='):  # Tăng confidence
+            print(f"Frame saved: {fname}")
+        elif key == ord('+') or key == ord('='):
             conf_thresh = min(0.95, conf_thresh + 0.05)
-            print(f"🔼 Ngưỡng Confidence: {conf_thresh:.2f}")
-        elif key == ord('-') or key == ord('_'):  # Giảm confidence
+            print(f"Confidence threshold: {conf_thresh:.2f}")
+        elif key == ord('-') or key == ord('_'):
             conf_thresh = max(0.10, conf_thresh - 0.05)
-            print(f"🔽 Ngưỡng Confidence: {conf_thresh:.2f}")
+            print(f"Confidence threshold: {conf_thresh:.2f}")
 
-        # Nếu người dùng bấm dấu X trên cửa sổ để tắt
+        # Check if window was closed
         if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
             break
 
     cap.release()
     cv2.destroyAllWindows()
-    print("👋 Đã dừng chương trình test webcam.")
+    print("Webcam inference stopped.")
 
 if __name__ == "__main__":
     main()

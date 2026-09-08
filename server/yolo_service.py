@@ -21,7 +21,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PT_PATH = os.path.join(BASE_DIR, "best.pt")
 ONNX_PATH = os.path.join(BASE_DIR, "best.onnx")
 
-# AI Reference Parameters (Source of Truth: test_webcam.py)
+# Inference Configuration
 CONF_THRESHOLD = 0.35
 IOU_THRESHOLD = 0.45
 IMAGE_SIZE = 640
@@ -124,7 +124,7 @@ model_metadata = {}
 def load_ai_model():
     global model_instance, onnx_session, active_backend, model_metadata
     print("\n" + "=" * 60)
-    print(" [AI] Loading AI trash recognition model (YOLO11s-CBAM)...")
+    print(" Loading YOLO11s-CBAM model...")
 
     # 1. Check if NVIDIA CUDA GPU is available
     cuda_available = False
@@ -158,15 +158,15 @@ def load_ai_model():
                 'device': f'GPU CUDA:0 ({gpu_name})',
                 'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
             }
-            print(f" [AI] Model loaded: {os.path.basename(resolved_pt)}")
-            print(f" [AI] Backend: Ultralytics PyTorch (CUDA)")
-            print(f" [AI] Device: {model_metadata['device']}")
+            print(f" Loaded model: {os.path.basename(resolved_pt)}")
+            print(f" Backend: Ultralytics PyTorch (CUDA)")
+            print(f" Device: {model_metadata['device']}")
             print("=" * 60 + "\n")
             return
         except Exception as e:
-            print(f" [AI WARN] Could not load GPU PyTorch: {e}")
+            print(f" [WARN] Could not load GPU PyTorch: {e}")
 
-    # 2. Load ONNX Runtime CPU (Ideal for Render free tier & CPU production)
+    # 2. Load ONNX Runtime CPU
     candidate_onnx = [
         ONNX_PATH,
         os.path.join(BASE_DIR, "bestfold1.onnx"),
@@ -178,7 +178,6 @@ def load_ai_model():
 
     if ort is not None and resolved_onnx:
         try:
-            print(f" [AI INFO] Loading ONNX Runtime with CPUExecutionProvider from {resolved_onnx}...")
             opts = ort.SessionOptions()
             opts.intra_op_num_threads = 2
             opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -192,13 +191,13 @@ def load_ai_model():
                 'device': 'CPU (Optimized 2-Thread ONNX)',
                 'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
             }
-            print(f" [AI SUCCESS] Loaded ONNX Runtime CPU successfully ({os.path.basename(resolved_onnx)})!")
+            print(f" Loaded ONNX Runtime model: {os.path.basename(resolved_onnx)}")
             print("=" * 60 + "\n")
             return
         except Exception as e:
-            print(f" [AI WARN] Could not load ONNX Runtime CPU: {e}")
+            print(f" [WARN] Could not load ONNX Runtime: {e}")
 
-    # 3. If ONNX fails, try Ultralytics CPU
+    # 3. Fallback: Ultralytics CPU
     if resolved_pt:
         try:
             from ultralytics import YOLO
@@ -212,15 +211,15 @@ def load_ai_model():
                 'device': 'CPU (Ultralytics)',
                 'loaded_at': time.strftime("%Y-%m-%d %H:%M:%S")
             }
-            print(f" [AI SUCCESS] Loaded Ultralytics PyTorch CPU ({os.path.basename(resolved_pt)})!")
+            print(f" Loaded Ultralytics PyTorch CPU model: {os.path.basename(resolved_pt)}")
             print("=" * 60 + "\n")
             return
         except Exception as e:
-            print(f" [AI WARN] Could not load PyTorch CPU: {e}")
+            print(f" [WARN] Could not load PyTorch CPU: {e}")
 
     # 4. Model load failure
     active_backend = "error"
-    print(" [AI ERROR] Failed to load any AI model (best.onnx or best.pt)!")
+    print(" [ERROR] Failed to load model (best.onnx or best.pt)")
     print("=" * 60 + "\n")
 
 load_ai_model()

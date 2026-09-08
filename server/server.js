@@ -115,9 +115,9 @@ app.use((err, req, res, next) => {
 // Start Server
 const server = app.listen(config.port, () => {
   console.log('====================================================');
-  console.log(` 🌱 HỆ THỐNG AI PHÂN LOẠI RÁC - BACKEND SERVER`);
-  console.log(` 🚀 Server running at: http://localhost:${config.port}`);
-  console.log(` 📡 Health Check:     http://localhost:${config.port}/api/health`);
+  console.log(` Trash AI Recognition - Backend Server`);
+  console.log(` Server running at: http://localhost:${config.port}`);
+  console.log(` Health Check:     http://localhost:${config.port}/api/health`);
   console.log('====================================================');
 });
 

@@ -264,7 +264,6 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 ├── best.onnx                        # Mô hình ONNX Runtime cho Web & Render (34.4 MB)
 ├── data_balanced.yaml               # Cấu hình 7 nhãn và dataset
 ├── config.py                        # Cấu hình siêu tham số huấn luyện
-├── resume_training.py               # Script tự động khôi phục huấn luyện từ checkpoint Google Drive
 ├── train.py                         # Script huấn luyện YOLO11s trên Local
 ├── train_cbam_colab.py              # Script huấn luyện 3-Fold YOLO11s-CBAM
 ├── train_yolo11s_cbam_colab.ipynb   # Notebook huấn luyện 3-Fold trên Google Colab

@@ -42,13 +42,13 @@ Mô hình được huấn luyện để nhận diện 7 nhóm rác thải sinh h
 
 ## 3. Bộ Dữ Liệu Huấn Luyện & Phương Pháp Chia K-Fold (Dataset & 3-Fold Cross-Validation)
 
-Hệ thống sử dụng toàn bộ **26.048 ảnh** với tổng cộng **59.080 Bounding Boxes** đã được cân bằng chuẩn xác trên 7 nhóm rác thải sinh hoạt (`battery`, `cardboard`, `paper`, `glass`, `metal`, `plastic`, `organic`).
+Hệ thống sử dụng toàn bộ **26.048 ảnh** với tổng cộng **59.080 Bounding Boxes** phân bố trên 7 nhóm rác thải sinh hoạt (`battery`, `cardboard`, `paper`, `glass`, `metal`, `plastic`, `organic`).
 
 ### 🔄 Phương pháp kiểm chứng chéo 3-Fold (3-Fold Cross-Validation):
 Để đảm bảo tính khách quan khoa học cao nhất và đánh giá chính xác năng lực tổng quát hóa của mô hình, toàn bộ 26.048 ảnh được gộp lại, xáo trộn ngẫu nhiên có kiểm soát (`random_seed = 42`) và chia đều thành **3 Fold độc lập** (K=3):
 
 ```text
-               TỔNG TẬP DỮ LIỆU CÂN BẰNG (26.048 ẢNH / 59.080 BOXES)
+                     TỔNG TẬP DỮ LIỆU (26.048 ẢNH / 59.080 BOXES)
                                        │
             ┌──────────────────────────┼──────────────────────────┐
             ▼                          ▼                          ▼
@@ -249,7 +249,6 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 ├── best.onnx                        # Mô hình ONNX Runtime cho Web & Render (34.4 MB)
 ├── data_balanced.yaml               # Cấu hình 7 nhãn và dataset
 ├── config.py                        # Cấu hình siêu tham số huấn luyện
-├── balance_dataset.py               # Script cân bằng tỷ lệ mẫu dữ liệu & Augmentation
 ├── train.py                         # Script huấn luyện YOLO11s trên Local
 ├── train_cbam_colab.py              # Script huấn luyện 3-Fold YOLO11s-CBAM
 ├── train_yolo11s_cbam_colab.ipynb   # Notebook huấn luyện 3-Fold trên Google Colab

@@ -243,8 +243,10 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 │   └── cbam.py                      # Module Convolutional Block Attention Module
 ├── models/                          # Cấu hình mạng nơ-ron
 │   └── yolo11s-cbam.yaml            # Định nghĩa kiến trúc YOLO11s-CBAM
-├── bbest.pt                          # Trọng số tối ưu nhất YOLO11s-CBAM (Best Fold 1) PyTorch (17.4 MB)
-├── bbest.onnx                        # Mô hình ONNX Runtime cho Web & Render (34.4 MB)
+├── best.pt                          # Trọng số tối ưu nhất YOLO11s-CBAM (Best Fold 1) PyTorch (17.4 MB)
+├── bestfold2.pt                     # Trọng số tối ưu YOLO11s-CBAM (Fold 2) PyTorch (17.4 MB)
+├── bestfold3.pt                     # Trọng số tối ưu YOLO11s-CBAM (Fold 3) PyTorch (17.4 MB)
+├── best.onnx                        # Mô hình ONNX Runtime cho Web & Render (34.4 MB)
 ├── data_balanced.yaml               # Cấu hình 7 nhãn và dataset
 ├── config.py                        # Cấu hình siêu tham số huấn luyện
 ├── balance_dataset.py               # Script cân bằng tỷ lệ mẫu dữ liệu & Augmentation
@@ -261,6 +263,7 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 ├── test_image.py                    # Kiểm thử nhận diện trên ảnh tĩnh
 ├── test_api_endpoints.py            # Kiểm thử tự động các đầu API
 ├── evaluate_cbam.py                 # Đánh giá độ chính xác cải tiến mô hình CBAM
+├── check_fold.py                    # Script kiểm tra siêu dữ liệu xác thực các Fold
 ├── test_output.jpg                  # Ảnh mẫu minh chứng kết quả kiểm thử
 ├── requirements.txt                 # Danh sách thư viện Python cần thiết
 ├── Dockerfile                       # Cấu hình đóng gói Docker Container

@@ -12,7 +12,6 @@ ngrok.yml
 *.csv
 *.png
 !client/public/*.png
-!client/dist/*.png
 
 # Python virtualenv & cache
 venv/
@@ -20,10 +19,12 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Node dependencies
+# Node dependencies & Build outputs
 node_modules/
 client/node_modules/
 server/node_modules/
+client/dist/
+dist/
 
 # System & IDE
 .ds_store
@@ -37,10 +38,13 @@ Thumbs.db
 *.bat
 run_live_gpu_tunnel.py
 
-# Temporary uploads & reports
+# Temporary uploads & reports & test dumps
 server/uploads/img_*
 *.docx
+extracted_text.txt
+val_batch_mixed_*.jpg
 bestfold1.*
 bestyolo11n.pt
 yolo11n.pt
 yolov8s.pt
+

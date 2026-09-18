@@ -98,8 +98,8 @@ Dự án phát triển trên kiến trúc nâng tiến **YOLO11s + CBAM** (tích
 - **Số lượng tham số (Parameters):** 8.951.735 tham số (8.95M)
 - **Độ phức tạp tính toán:** 20.5 GFLOPs
 - **Các phiên bản trọng số sử dụng:**
-  - `best.pt` (PyTorch FP32 - 17.4 MB): Trọng số tối ưu nhất đạt được từ Fold 1 (thuộc kiểm định 3-Fold Cross-Validation), phục vụ chạy trên GPU CUDA hoặc inference backend.
-  - `best.onnx` (ONNX Runtime - 34.4 MB): Định dạng ONNX tối ưu phục vụ việc nạp trực tiếp vào trình duyệt qua ONNX Runtime Web (WebGPU / WASM) và chạy mượt mà trên nền tảng Cloud Render CPU.
+  - `bbest.pt` (PyTorch FP32 - 17.4 MB): Trọng số tối ưu nhất đạt được từ Fold 1 (thuộc kiểm định 3-Fold Cross-Validation), phục vụ chạy trên GPU CUDA hoặc inference backend.
+  - `bbest.onnx` (ONNX Runtime - 34.4 MB): Định dạng ONNX tối ưu phục vụ việc nạp trực tiếp vào trình duyệt qua ONNX Runtime Web (WebGPU / WASM) và chạy mượt mà trên nền tảng Cloud Render CPU.
 
 ### ⚙️ Siêu tham số huấn luyện:
 
@@ -148,7 +148,37 @@ Dưới đây là một ví dụ kết quả kiểm thử thực tế của mô 
 
 ---
 
-## 6. Các Kịch Bản Kiểm Thử (Testing Scripts)
+## 6. Thực Nghiệm Đối Sánh Đa Kiến Trúc & Benchmarks (Model Comparisons)
+
+Nhằm đảm bảo tính khách quan khoa học và làm cơ sở lựa chọn mô hình tối ưu cho hệ thống phân loại rác thải, đề tài đã triển khai thực nghiệm đối chứng giữa **3 trường phái kiến trúc Object Detection tiêu biểu**:
+
+1. **One-Stage Detectors:** Họ mô hình YOLO thế hệ mới (**YOLO11s**, **YOLO11n**, **YOLOv8s**) và mô hình đề xuất cải tiến **YOLO11s + CBAM** (tích hợp cơ chế chú ý kênh & không gian).
+2. **Two-Stage Detector (Kinh điển):** **Faster R-CNN** (Backbone MobileNetV3-Large FPN) đại diện cho trường phái trích xuất vùng ứng viên (Region Proposal).
+3. **Transformer-based Detector (Hiện đại):** **RT-DETR-R18** (Real-Time Detection Transformer) đại diện cho trường phái Vision Transformer.
+
+### 📋 Bảng tổng hợp đối sánh hiệu năng thực nghiệm (GPU Tesla T4 16GB, FP16, Batch=1, 200 ảnh test cố định):
+
+| Trường phái | Mô hình | Số tham số (Params) | Precision (%) | Recall (%) | mAP@50 (%) | mAP@50-95 (%) | Mean Latency | Tốc độ (FPS) | Đánh giá & Quyết định |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **One-Stage (Đề xuất)** | **YOLO11s + CBAM** | **8.95 M** | **93.05%** | **85.63%** | **91.18%** | **78.82%** | **7.91 ms** | **~126.4 FPS** | 🏆 **Tối ưu nhất: Chính xác cao vượt trội, siêu mượt Real-time** |
+| One-Stage (Baseline) | YOLO11s (Gốc) | 9.43 M | 90.32% | 80.62% | 81.25% | 66.59% | 13.07 ms | 76.50 FPS | Cân bằng tốt nhưng độ chính xác thấp hơn CBAM |
+| One-Stage | YOLO11n | 2.59 M | 84.10% | 71.50% | 79.20% | 58.40% | 12.64 ms | 79.10 FPS | Tốc độ nhanh nhưng mAP thấp, dễ bỏ sót rác nhỏ |
+| One-Stage | YOLOv8s | 11.14 M | 82.40% | 74.10% | 81.50% | 60.30% | 10.36 ms | 96.49 FPS | Kiến trúc thế hệ cũ, độ trễ và độ chính xác kém hơn |
+| **Two-Stage** | **Faster R-CNN** (MobileNetV3) | 18.96 M | 86.29% | 82.80% | 82.12% | 64.57% | 19.89 ms | 50.27 FPS | Nặng gấp đôi, độ trễ cao hơn, mAP@50-95 thấp |
+| **Transformer** | **RT-DETR-R18** | 29.85 M | — | — | — | — | 42.50 ms | 23.53 FPS | Quá nặng (~30M params), FPS < 30 (không đạt chuẩn Real-time) |
+
+### 📂 Danh mục mã nguồn huấn luyện & Benchmark đối chứng:
+
+- [`train_yolo11s_cbam_colab.ipynb`](train_yolo11s_cbam_colab.ipynb): Huấn luyện & Đánh giá mô hình đề xuất **YOLO11s-CBAM** qua K-Fold Cross Validation.
+- [`train_trash_yolo11_colab.ipynb`](train_trash_yolo11_colab.ipynb): Huấn luyện & Đánh giá mô hình cơ sở **YOLO11s** gốc.
+- [`train_faster_rcnn_colab.ipynb`](train_faster_rcnn_colab.ipynb): Huấn luyện mô hình đối chứng **Faster R-CNN MobileNetV3** (Two-Stage).
+- [`train_rtdetr_colab.ipynb`](train_rtdetr_colab.ipynb) / [`train_rtdetr_colab.py`](train_rtdetr_colab.py): Huấn luyện mô hình đối chứng **RT-DETR** (Vision Transformer).
+- [`benchmark_latency_colab.py`](benchmark_latency_colab.py): Bộ công cụ benchmark GPU khoa học trên Colab (đo cùng lúc 4-6 mô hình trên 200 ảnh test cố định, 5 lần lặp, tính Latency, P95, P99, FPS).
+- [`benchmark_speed.py`](benchmark_speed.py): Đo đạc chuyên sâu tốc độ suy luận triển khai của mô hình sản phẩm (`best.pt` / `best.onnx`) trên CPU, PyTorch FP16/FP32 và ONNX Runtime.
+
+---
+
+## 7. Các Kịch Bản Kiểm Thử (Testing Scripts)
 
 Dự án cung cấp các kịch bản kiểm thử độc lập phục vụ kiểm tra và đánh giá:
 
@@ -159,7 +189,7 @@ Dự án cung cấp các kịch bản kiểm thử độc lập phục vụ ki�
 
 ---
 
-## 7. Kiến Trúc Hệ Thống (System Architecture)
+## 8. Kiến Trúc Hệ Thống (System Architecture)
 
 Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh hoạt:
 
@@ -174,26 +204,25 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 ┌────────────────────────────────────────┐ ┌──────────────────────────────┐
 │        ONNX RUNTIME WEB ENGINE         │ │        WEB API SERVER        │
 │        (WebGPU / WASM SIMD)            │ │       Node.js Express        │
-│  - Nạp best.onnx (34.4MB)              │ │  - Quản lý lịch sử, upload   │
+│  - Nạp bbest.onnx (34.4MB)              │ │  - Quản lý lịch sử, upload   │
 │  - Xử lý trực tiếp camera trên browser │ └──────────────┬───────────────┘
 └────────────────────────────────────────┘                │ Internal Proxy
                                                           ▼
                                            ┌──────────────────────────────┐
                                            │    PYTHON AI MICROSERVICE    │
                                            │   Flask + PyTorch (CUDA)     │
-                                           │  - Nạp best.pt (17.4MB)      │
+                                           │  - Nạp bbest.pt (17.4MB)      │
                                            │  - Xử lý ảnh tĩnh tải lên    │
                                            └──────────────────────────────┘
 ```
 
 ---
 
-## 8. Cấu Trúc Thư Mục Repository
+## 9. Cấu Trúc Thư Mục Repository
 
 ```text
 .
 ├── client/                          # Mã nguồn Frontend Vue.js 3
-│   ├── dist/                        # Bản build tĩnh production
 │   ├── public/                      # Tài nguyên tĩnh (WASM, mô hình ONNX 34.4MB)
 │   ├── src/                         # Components, Views, Routers, Services
 │   │   ├── components/classify/     # WebcamClassifier & ImageClassifier
@@ -207,27 +236,31 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 │   ├── data/                        # File lưu trữ dữ liệu lịch sử nhận diện (JSON)
 │   ├── repositories/                # Tầng truy xuất dữ liệu
 │   ├── routes/                      # Định nghĩa các Route API (/api/predict, /history...)
-│   ├── uploads/                     # Thư mục lưu ảnh đã phân loại
+│   ├── uploads/                     # Thư mục lưu 7 ảnh mẫu chuẩn (sample_*.jpg)
 │   ├── server.js                    # Web server chính chạy Node.js Express (Port 5000)
 │   └── yolo_service.py              # Dịch vụ AI Python Flask kết nối YOLO model (Port 5001)
 ├── modules/                         # Module mạng nơ-ron tùy biến
 │   └── cbam.py                      # Module Convolutional Block Attention Module
 ├── models/                          # Cấu hình mạng nơ-ron
 │   └── yolo11s-cbam.yaml            # Định nghĩa kiến trúc YOLO11s-CBAM
-├── best.pt                          # Trọng số tối ưu YOLO11s-CBAM PyTorch (17.4 MB)
-├── best.onnx                        # Mô hình ONNX Runtime cho Web & Render (34.4 MB)
+├── bbest.pt                          # Trọng số tối ưu nhất YOLO11s-CBAM (Best Fold 1) PyTorch (17.4 MB)
+├── bbest.onnx                        # Mô hình ONNX Runtime cho Web & Render (34.4 MB)
 ├── data_balanced.yaml               # Cấu hình 7 nhãn và dataset
 ├── config.py                        # Cấu hình siêu tham số huấn luyện
-├── balance_dataset.py               # Script cân bằng tỷ lệ mẫu dữ liệu
+├── balance_dataset.py               # Script cân bằng tỷ lệ mẫu dữ liệu & Augmentation
 ├── train.py                         # Script huấn luyện YOLO11s trên Local
 ├── train_cbam_colab.py              # Script huấn luyện 3-Fold YOLO11s-CBAM
 ├── train_yolo11s_cbam_colab.ipynb   # Notebook huấn luyện 3-Fold trên Google Colab
+├── train_faster_rcnn_colab.ipynb    # Notebook huấn luyện mô hình đối chứng Faster R-CNN
 ├── train_rtdetr_colab.py            # Script huấn luyện mô hình RT-DETR đối chứng
 ├── train_rtdetr_colab.ipynb         # Notebook huấn luyện RT-DETR trên Google Colab
 ├── train_trash_yolo11_colab.ipynb   # Notebook huấn luyện YOLO11 cơ bản
+├── benchmark_latency_colab.py       # Bộ benchmark GPU đo đạc Latency & FPS 4 dòng mô hình
+├── benchmark_speed.py               # Script benchmark tốc độ suy luận triển khai (PyTorch/CPU/ONNX)
 ├── test_webcam.py                   # Kiểm thử nhận diện webcam qua Python CUDA
 ├── test_image.py                    # Kiểm thử nhận diện trên ảnh tĩnh
 ├── test_api_endpoints.py            # Kiểm thử tự động các đầu API
+├── evaluate_cbam.py                 # Đánh giá độ chính xác cải tiến mô hình CBAM
 ├── test_output.jpg                  # Ảnh mẫu minh chứng kết quả kiểm thử
 ├── requirements.txt                 # Danh sách thư viện Python cần thiết
 ├── Dockerfile                       # Cấu hình đóng gói Docker Container
@@ -241,7 +274,7 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 
 ---
 
-## 9. Hướng Dẫn Cài Đặt & Chạy Localhost
+## 10. Hướng Dẫn Cài Đặt & Chạy Localhost
 
 ### 📋 Yêu cầu môi trường:
 
@@ -295,7 +328,7 @@ node server/server.js
 
 ---
 
-## 10. Chạy Ứng Dụng Bằng Docker
+## 11. Chạy Ứng Dụng Bằng Docker
 
 Hệ thống hỗ trợ đóng gói và chạy thông qua Docker Container:
 
@@ -311,7 +344,7 @@ Sau khi khởi động thành công, truy cập ứng dụng tại cổng đư�
 
 ---
 
-## 11. Các Script Kiểm Thử Nhanh
+## 12. Các Script Kiểm Thử Nhanh
 
 ```bash
 # 1. Kiểm thử trên webcam máy tính (yêu cầu webcam)
@@ -326,7 +359,7 @@ python test_api_endpoints.py
 
 ---
 
-## 12. Triển Khai Hệ Thống (Cloud Deployment)
+## 13. Triển Khai Hệ Thống (Cloud Deployment)
 
 Hệ thống được triển khai thử nghiệm trên nền tảng đám mây **Render** thông qua Docker container:
 
@@ -335,7 +368,7 @@ Hệ thống được triển khai thử nghiệm trên nền tảng đám mây 
 
 ---
 
-## 13. Hạn Chế Thực Tế & Hướng Phát Triển
+## 14. Hạn Chế Thực Tế & Hướng Phát Triển
 
 ### ⚠️ Hạn chế hiện tại của mô hình:
 

@@ -19,6 +19,10 @@ CORS(app)
 # Base directories and model paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PT_PATH = os.path.join(BASE_DIR, "best.pt")
+if not os.path.exists(PT_PATH):
+    alt_pt = os.path.join(BASE_DIR, "bestfold1.pt")
+    if os.path.exists(alt_pt):
+        PT_PATH = alt_pt
 ONNX_PATH = os.path.join(BASE_DIR, "best.onnx")
 
 # Inference Configuration

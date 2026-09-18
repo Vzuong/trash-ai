@@ -263,7 +263,6 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 ├── test_image.py                    # Kiểm thử nhận diện trên ảnh tĩnh
 ├── test_api_endpoints.py            # Kiểm thử tự động các đầu API
 ├── evaluate_cbam.py                 # Đánh giá độ chính xác cải tiến mô hình CBAM
-├── check_fold.py                    # Script kiểm tra siêu dữ liệu xác thực các Fold
 ├── test_output.jpg                  # Ảnh mẫu minh chứng kết quả kiểm thử
 ├── requirements.txt                 # Danh sách thư viện Python cần thiết
 ├── Dockerfile                       # Cấu hình đóng gói Docker Container

@@ -98,8 +98,8 @@ Dự án phát triển trên kiến trúc nâng tiến **YOLO11s + CBAM** (tích
 - **Số lượng tham số (Parameters):** 8.951.735 tham số (8.95M)
 - **Độ phức tạp tính toán:** 20.5 GFLOPs
 - **Các phiên bản trọng số sử dụng:**
-  - `bbest.pt` (PyTorch FP32 - 17.4 MB): Trọng số tối ưu nhất đạt được từ Fold 1 (thuộc kiểm định 3-Fold Cross-Validation), phục vụ chạy trên GPU CUDA hoặc inference backend.
-  - `bbest.onnx` (ONNX Runtime - 34.4 MB): Định dạng ONNX tối ưu phục vụ việc nạp trực tiếp vào trình duyệt qua ONNX Runtime Web (WebGPU / WASM) và chạy mượt mà trên nền tảng Cloud Render CPU.
+  - `best.pt` (PyTorch FP32 - 17.4 MB): Trọng số tối ưu nhất đạt được từ Fold 1 (`bestfold1.pt`), phục vụ chạy trên GPU CUDA hoặc inference backend.
+  - `best.onnx` (ONNX Runtime - 34.4 MB): Định dạng ONNX tối ưu phục vụ việc nạp trực tiếp vào trình duyệt qua ONNX Runtime Web (WebGPU / WASM) và chạy mượt mà trên nền tảng Cloud Render CPU.
 
 ### ⚙️ Siêu tham số huấn luyện:
 
@@ -121,24 +121,33 @@ Quá trình huấn luyện chi tiết có thể theo dõi trong notebook: [`trai
 
 ## 5. Kết Quả Đánh Giá Mô Hình (Evaluation Metrics)
 
-Kết quả đánh giá định lượng trên tập **Validation Fold 1 (8.682 ảnh / 19.386 bounding boxes)**:
+### 📋 Bảng 3.1: Tổng hợp kết quả kiểm định chéo 3-Fold của mô hình YOLO11s kết hợp CBAM:
 
-| Chỉ số đánh giá | Kết quả thực nghiệm (Fold 1) | Trung bình 3-Fold (Mean ± Std) | Ý nghĩa chuyên môn |
-| :--- | :---: | :---: | :--- |
-| **Precision (P)** | **93.05%** | **92.83% ± 0.15%** | Tỷ lệ dự đoán đúng trên tổng số dự đoán dương tính |
-| **Recall (R)** | **85.63%** | **85.17% ± 0.51%** | Tỷ lệ phát hiện đối tượng trên tổng số đối tượng thực tế |
-| **mAP @ 0.50** | **91.18%** | **90.87% ± 0.35%** | mean Average Precision tại ngưỡng IoU 0.50 |
-| **mAP @ 0.50:0.95** | **78.82%** | **78.47% ± 0.29%** | mAP trung bình trên dải ngưỡng IoU từ 0.50 đến 0.95 |
-| **Inference Latency** | **7.91 ms / frame** | **8.47 ± 1.82 ms** | Đạt **~126 FPS** trên GPU Tesla T4, đáp ứng vượt xa chuẩn Real-time (>30 FPS) |
+| Lượt chạy (Fold) | Số lượng ảnh kiểm định | Số lượng đối tượng | Độ chính xác - Precision (%) | Độ bao phủ - Recall (%) | mAP@50 (%) | mAP@50-95 (%) | Thời gian suy luận GPU (ms/ảnh) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Fold 1** | 8.682 | 19.386 | **93,05%** | **85,63%** | **91,18%** | **78,82%** | **7,91 ms** (~126.4 FPS) |
+| **Fold 2** | 8.682 | 20.061 | **92,80%** | **84,60%** | **90,50%** | **78,30%** | **7,00 ms** (~142.8 FPS) |
+| **Fold 3** | 8.684 | 19.633 | **92,70%** | **85,30%** | **90,90%** | **78,30%** | **10,50 ms** (~95.2 FPS) |
+| **Tổng toàn bộ dữ liệu (Trung bình 3-Fold)** | **26.048 (100%)** | **59.080 (100%)** | **92,85%** | **85,18%** | **90,86%** | **78,47%** | **8,47 ms** (~118.1 FPS) |
 
-### 📊 Hiệu năng chi tiết trên 7 nhóm rác (Fold 1):
-* 🔋 **Pin (battery):** mAP@50 đạt **98.2%**, mAP@50-95 đạt **87.0%**
-* 📦 **Bìa carton (cardboard):** mAP@50 đạt **98.4%**, mAP@50-95 đạt **86.4%**
-* 📄 **Giấy (paper):** mAP@50 đạt **86.4%**, mAP@50-95 đạt **73.3%**
-* 🍾 **Thủy tinh (glass):** mAP@50 đạt **99.2%**, mAP@50-95 đạt **93.5%**
-* 🥫 **Kim loại (metal):** mAP@50 đạt **88.5%**, mAP@50-95 đạt **74.7%**
-* 🧴 **Nhựa (plastic):** mAP@50 đạt **74.6%**, mAP@50-95 đạt **64.0%**
-* 🍎 **Hữu cơ (organic):** mAP@50 đạt **93.0%**, mAP@50-95 đạt **72.8%**
+> ⏱️ **Độ trễ vận hành thực tế:**
+> - **Inference GPU:** Trung bình **8,47 ms/ảnh** (~118.1 FPS trên GPU Tesla T4) và **7,91 ms** ở Fold 1 tối ưu.
+> - **End-to-End hệ thống (Local):** Đạt trung bình **234,82 ms/khung hình (~4,3 FPS)** (bao gồm toàn bộ chu trình nạp ảnh, truyền dữ liệu HTTP giữa Vue 3, Express và Python AI Microservice xử lý).
+
+---
+
+### 📊 Bảng 3.2: Hiệu năng nhận diện trung bình chi tiết theo 7 nhóm rác thải (3-Fold Average):
+
+| STT | Nhóm rác thải | Tổng đối tượng (Instances) | Tỷ lệ phân bổ (%) | Độ chính xác - Precision (%) | Độ bao phủ - Recall (%) | mAP@50 (%) | mAP@50-95 (%) |
+| :-: | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| 1 | 🍾 **Thủy tinh (Glass)** | 7.217 | 12,22% | 97,13% | 97,17% | **98,87%** | **93,10%** |
+| 2 | 🔋 **Pin (Battery)** | 8.059 | 13,64% | 97,10% | 97,43% | **98,70%** | **87,00%** |
+| 3 | 📦 **Bìa các-tông (Cardboard)** | 11.551 | 19,55% | 93,93% | 95,60% | **98,20%** | **86,33%** |
+| 4 | 🍎 **Hữu cơ (Organic)** | 6.924 | 11,72% | 86,60% | 86,20% | **92,03%** | **72,73%** |
+| 5 | 🥫 **Kim loại (Metal)** | 8.999 | 15,23% | 89,27% | 81,87% | **88,97%** | **76,10%** |
+| 6 | 📄 **Giấy (Paper)** | 6.157 | 10,42% | 89,50% | 75,47% | **84,53%** | **69,97%** |
+| 7 | 🧴 **Nhựa (Plastic)** | 10.173 | 17,22% | 96,43% | 62,30% | **74,87%** | **64,23%** |
+| | **Toàn bộ bộ dữ liệu** | **59.080** | **100%** | **92,85%** | **85,18%** | **90,86%** | **78,47%** |
 
 ### 🖼️ Minh chứng kết quả nhận diện thực tế:
 
@@ -150,22 +159,28 @@ Dưới đây là một ví dụ kết quả kiểm thử thực tế của mô 
 
 ## 6. Thực Nghiệm Đối Sánh Đa Kiến Trúc & Benchmarks (Model Comparisons)
 
-Nhằm đảm bảo tính khách quan khoa học và làm cơ sở lựa chọn mô hình tối ưu cho hệ thống phân loại rác thải, đề tài đã triển khai thực nghiệm đối chứng giữa **3 trường phái kiến trúc Object Detection tiêu biểu**:
+Nhằm đảm bảo tính khách quan khoa học và làm cơ sở lựa chọn mô hình tối ưu cho hệ thống phân loại rác thải, đề tài đã triển khai thực nghiệm khảo sát và đối chứng giữa **các kiến trúc Object Detection tiêu biểu**:
 
-1. **One-Stage Detectors:** Họ mô hình YOLO thế hệ mới (**YOLO11s**, **YOLO11n**, **YOLOv8s**) và mô hình đề xuất cải tiến **YOLO11s + CBAM** (tích hợp cơ chế chú ý kênh & không gian).
-2. **Two-Stage Detector (Kinh điển):** **Faster R-CNN** (Backbone MobileNetV3-Large FPN) đại diện cho trường phái trích xuất vùng ứng viên (Region Proposal).
+1. **One-Stage Detectors:** Họ mô hình YOLO thế hệ mới (**YOLO11s**, **YOLO11n**, **YOLO11m**, **YOLOv8s**) và mô hình đề xuất cải tiến **YOLO11s + CBAM** (tích hợp cơ chế chú ý kênh & không gian).
+2. **Two-Stage Detector (Kinh điển):** **Faster R-CNN** (Backbone MobileNetV3) đại diện cho trường phái trích xuất vùng ứng viên (Region Proposal).
 3. **Transformer-based Detector (Hiện đại):** **RT-DETR-R18** (Real-Time Detection Transformer) đại diện cho trường phái Vision Transformer.
 
-### 📋 Bảng tổng hợp đối sánh hiệu năng thực nghiệm (GPU Tesla T4 16GB, FP16, Batch=1, 200 ảnh test cố định):
+### 📋 Bảng 2.3: Đối sánh hiệu năng Baseline (trước khi tối ưu hóa siêu tham số) trên tập Validation (Trích Báo cáo):
 
-| Trường phái | Mô hình | Số tham số (Params) | Precision (%) | Recall (%) | mAP@50 (%) | mAP@50-95 (%) | Mean Latency | Tốc độ (FPS) | Đánh giá & Quyết định |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **One-Stage (Đề xuất)** | **YOLO11s + CBAM** | **8.95 M** | **93.05%** | **85.63%** | **91.18%** | **78.82%** | **7.91 ms** | **~126.4 FPS** | 🏆 **Tối ưu nhất: Chính xác cao vượt trội, siêu mượt Real-time** |
-| One-Stage (Baseline) | YOLO11s (Gốc) | 9.43 M | 90.32% | 80.62% | 81.25% | 66.59% | 13.07 ms | 76.50 FPS | Cân bằng tốt nhưng độ chính xác thấp hơn CBAM |
-| One-Stage | YOLO11n | 2.59 M | 84.10% | 71.50% | 79.20% | 58.40% | 12.64 ms | 79.10 FPS | Tốc độ nhanh nhưng mAP thấp, dễ bỏ sót rác nhỏ |
-| One-Stage | YOLOv8s | 11.14 M | 82.40% | 74.10% | 81.50% | 60.30% | 10.36 ms | 96.49 FPS | Kiến trúc thế hệ cũ, độ trễ và độ chính xác kém hơn |
-| **Two-Stage** | **Faster R-CNN** (MobileNetV3) | 18.96 M | 86.29% | 82.80% | 82.12% | 64.57% | 19.89 ms | 50.27 FPS | Nặng gấp đôi, độ trễ cao hơn, mAP@50-95 thấp |
-| **Transformer** | **RT-DETR-R18** | 29.85 M | — | — | — | — | 42.50 ms | 23.53 FPS | Quá nặng (~30M params), FPS < 30 (không đạt chuẩn Real-time) |
+| Mô hình (Model) | Trường phái kiến trúc | Số lượng tham số (Params) | Precision (%) | Recall (%) | mAP@50 (%) | mAP@50-95 (%) | Độ trễ suy luận (Inference Latency) | Tốc độ tương đương |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **YOLO11s + CBAM (Đề xuất)** | **One-Stage + Attention** | **8.95 M** | **93,05%** | **85,63%** | **91,18%** | **78,82%** | **7,91 ms** | **~126.4 FPS** |
+| YOLO11s (Baseline gốc) | One-Stage | 9.4 M | 91,09% | 79,77% | 87,44% | 71,35% | ~15,48 ms | ~64.6 FPS |
+| YOLO11n | One-Stage | 2.6 M | 89,78% | 79,30% | 86,58% | 69,80% | ~14,99 ms | ~66.7 FPS |
+| YOLO11m | One-Stage | 20.1 M | 90,42% | 79,48% | 86,72% | 70,70% | ~18,19 ms | ~55.0 FPS |
+| YOLOv8s | One-Stage (Thế hệ trước) | 11.2 M | 89,58% | 80,25% | 86,84% | 70,10% | ~10,42 ms | ~96.0 FPS |
+| Faster R-CNN (MobileNetV3) | Two-Stage | 18.96 M | 86,29% | 82,80% | 82,12% | 64,57% | ~19,89 ms | ~50.3 FPS |
+| RT-DETR-R18 | Vision Transformer | 29.85 M | 84,9% | 70,9% | 77,8% | 62,1% | 46,48 ms | ~21.5 FPS |
+
+> 💡 **Nhận xét chuyên môn từ kết quả thực nghiệm:**
+> - **Mô hình đề xuất YOLO11s + CBAM** đạt hiệu năng vượt bậc so với tất cả các kiến trúc khảo sát: mAP@50 đạt **91,18%** (vượt YOLO11s gốc +3.74%), mAP@50-95 đạt **78,82%** (vượt +7.47%), đồng thời giảm dung lượng tham số xuống còn **8.95M** và tăng tốc độ xử lý lên **~126 FPS** trên GPU.
+> - **RT-DETR-R18** có chi phí tính toán rất lớn (29.85M params) và độ trễ cao (46.48 ms ~ 21.5 FPS, không đạt chuẩn Real-time >30 FPS).
+> - **Faster R-CNN** có Recall tốt (82.80%) nhưng độ trễ ~19.89 ms và kích thước lớn (18.96M params).
 
 ### 📂 Danh mục mã nguồn huấn luyện & Benchmark đối chứng:
 
@@ -204,14 +219,14 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 ┌────────────────────────────────────────┐ ┌──────────────────────────────┐
 │        ONNX RUNTIME WEB ENGINE         │ │        WEB API SERVER        │
 │        (WebGPU / WASM SIMD)            │ │       Node.js Express        │
-│  - Nạp bbest.onnx (34.4MB)              │ │  - Quản lý lịch sử, upload   │
+│  - Nạp best.onnx (34.4MB)              │ │  - Quản lý lịch sử, upload   │
 │  - Xử lý trực tiếp camera trên browser │ └──────────────┬───────────────┘
 └────────────────────────────────────────┘                │ Internal Proxy
                                                           ▼
                                            ┌──────────────────────────────┐
                                            │    PYTHON AI MICROSERVICE    │
                                            │   Flask + PyTorch (CUDA)     │
-                                           │  - Nạp bbest.pt (17.4MB)      │
+                                           │  - Nạp best.pt (17.4MB)      │
                                            │  - Xử lý ảnh tĩnh tải lên    │
                                            └──────────────────────────────┘
 ```
@@ -243,12 +258,13 @@ Hệ thống được thiết kế theo mô hình **Hybrid Dual-Engine** linh ho
 │   └── cbam.py                      # Module Convolutional Block Attention Module
 ├── models/                          # Cấu hình mạng nơ-ron
 │   └── yolo11s-cbam.yaml            # Định nghĩa kiến trúc YOLO11s-CBAM
-├── best.pt                          # Trọng số tối ưu nhất YOLO11s-CBAM (Best Fold 1) PyTorch (17.4 MB)
+├── best.pt                          # Trọng số tối ưu nhất YOLO11s-CBAM (Best Fold 1 / bestfold1.pt) (17.4 MB)
 ├── bestfold2.pt                     # Trọng số tối ưu YOLO11s-CBAM (Fold 2) PyTorch (17.4 MB)
 ├── bestfold3.pt                     # Trọng số tối ưu YOLO11s-CBAM (Fold 3) PyTorch (17.4 MB)
 ├── best.onnx                        # Mô hình ONNX Runtime cho Web & Render (34.4 MB)
 ├── data_balanced.yaml               # Cấu hình 7 nhãn và dataset
 ├── config.py                        # Cấu hình siêu tham số huấn luyện
+├── resume_training.py               # Script tự động khôi phục huấn luyện từ checkpoint Google Drive
 ├── train.py                         # Script huấn luyện YOLO11s trên Local
 ├── train_cbam_colab.py              # Script huấn luyện 3-Fold YOLO11s-CBAM
 ├── train_yolo11s_cbam_colab.ipynb   # Notebook huấn luyện 3-Fold trên Google Colab
